@@ -4,6 +4,7 @@ import { db, schema } from '@/lib/db/client'
 import { listMembershipsForCurrentUser } from '@/lib/auth/guards'
 import { computeSignalsForUser } from '@/lib/people/risk'
 import { SCREENSHOTS_ENABLED } from '@/lib/flags'
+import { STATE_DISPLAY, type StateTone } from '@/lib/engine/state-labels'
 
 /**
  * The "Exactly what MARINA knows about you" transparency view — extracted from
@@ -30,6 +31,27 @@ export async function EmployeeDataView({ userId }: { userId: number }) {
       orderBy: desc(schema.shotConsents.consentedAt),
     }),
   ])
+
+  // The exact rows a manager's dashboard reads for this person (same table,
+  // same label map, same reason text) — shown back to the person themselves.
+  const statusRows = await db
+    .select({
+      day: schema.dailyStates.day,
+      state: schema.dailyStates.state,
+      reason: schema.dailyStates.reason,
+      computedAt: schema.dailyStates.computedAt,
+    })
+    .from(schema.dailyStates)
+    .where(eq(schema.dailyStates.userId, userId))
+    .orderBy(desc(schema.dailyStates.day))
+    .limit(7)
+  const TONE_PILL: Record<StateTone, string> = {
+    good: 'pill-good',
+    steady: 'pill-info',
+    blocked: 'pill-bad',
+    checkin: 'pill-warn',
+    none: 'pill-slate',
+  }
 
   const agentPaired = devices.some((d) => !d.revokedAt)
   const githubConnected = !!githubAccount
@@ -132,6 +154,39 @@ export async function EmployeeDataView({ userId }: { userId: number }) {
           can export or delete it any time.
         </p>
       </div>
+
+      <section data-testid="my-status">
+        <h2 className="app-h3">Your status, as your manager sees it</h2>
+        <p className="mt-1 text-[12.5px] text-[var(--m-ink-3)] leading-relaxed">
+          These are the same daily status labels and the same explanations that appear on your manager&apos;s dashboard.
+          Nothing about your status is shown to them in different words.
+        </p>
+        {statusRows.length === 0 ? (
+          <p className="mt-4 app-card px-5 py-4 text-[13px] text-[var(--m-ink-3)]">
+            No daily status has been computed for you yet, so your manager sees none either.
+          </p>
+        ) : (
+          <ul className="mt-4 app-card divide-y divide-[var(--m-border-soft)]">
+            {statusRows.map((r) => {
+              const d = STATE_DISPLAY[r.state] ?? STATE_DISPLAY.NoData
+              return (
+                <li key={r.day} className="px-5 py-4 flex items-start justify-between gap-4 flex-wrap">
+                  <div className="min-w-0 flex-1 max-w-[520px]">
+                    <p className="text-[12px] text-[var(--m-ink-3)] tabular-nums">{r.day}</p>
+                    <p className="mt-0.5 text-[13.5px] text-[var(--m-ink)]">{r.reason || d.meaning}</p>
+                    <p className="mt-1 text-[12px] text-[var(--m-ink-3)] leading-relaxed">What this label means: {d.meaning}</p>
+                  </div>
+                  <span className={`pill ${TONE_PILL[d.tone]} shrink-0`}>{d.label}</span>
+                </li>
+              )
+            })}
+          </ul>
+        )}
+        <p className="mt-3 text-[12px] text-[var(--m-ink-3)] leading-relaxed">
+          If a label looks wrong, tell your manager. It is computed from the signals listed below, and those can be
+          incomplete.
+        </p>
+      </section>
 
       <section>
         <h2 className="app-h3">What MARINA tracks about you</h2>

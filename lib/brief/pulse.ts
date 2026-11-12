@@ -11,7 +11,7 @@ export type TeamPulse = {
   total: number
   onShift: number
   blocked: number
-  blockers: { userId: number; name: string; sinceMin: number; waitingOn: string }[]
+  blockers: { breakId: number; userId: number; name: string; sinceMin: number; waitingOn: string }[]
 }
 
 export async function getTeamPulse(orgId: number): Promise<TeamPulse> {
@@ -38,6 +38,7 @@ export async function getTeamPulse(orgId: number): Promise<TeamPulse> {
     .where(and(eq(schema.shifts.orgId, orgId), isNull(schema.shifts.punchedOutAt)))
 
   const blockers = blockerRows.map(({ b, u }) => ({
+    breakId: b.id,
     userId: u.id,
     name: u.name ?? `@${u.login}`,
     sinceMin: Math.floor((Date.now() - new Date(b.startedAt).getTime()) / 60000),

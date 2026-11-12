@@ -4,7 +4,7 @@ import { db, schema } from '@/lib/db/client'
 import { authenticateAgent } from '@/lib/agent/auth'
 import { checkLimit, rateLimitHeaders } from '@/lib/agent/rate-limit'
 import { getBlobStore, shotKey } from '@/lib/storage/blob'
-import { getVisionProvider, progressScore } from '@/lib/ai/vision'
+import { getVisionProvider, hasVisionKey, progressScore } from '@/lib/ai/vision'
 import { canSpend, estimateCostCents, recordSpend } from '@/lib/ai/budget'
 import { log } from '@/lib/log/log'
 import { SCREENSHOTS_ENABLED } from '@/lib/flags'
@@ -150,7 +150,7 @@ export async function POST(req: Request) {
   // a stagnation engine pass can re-analyze later.
   let analysisOut: VisionAnalysis | null = null
   try {
-    if (!process.env.OPENAI_API_KEY) {
+    if (!hasVisionKey()) {
       log.warn('agent.shot.vision_skipped_no_key', { userId: agent.user.id })
     } else if (!(await canSpend(orgIdForBudget, 'vision')).allowed) {
       // Budget exhausted — skip vision but keep the screenshot. The "no analysis"

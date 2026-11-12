@@ -18,7 +18,7 @@ import { afterResponse } from '@/lib/after'
  * Spend is cents-of-USD (matching providers' billing units). 1 USD = 100c.
  */
 
-export type SpendKind = 'vision' | 'story' | 'narrative' | 'verify_shift' | 'employee_chat'
+export type SpendKind = 'vision' | 'story' | 'narrative' | 'verify_shift' | 'employee_chat' | 'blocker_resolver'
 
 export type SpendDecision = {
   allowed: boolean
@@ -114,10 +114,10 @@ export function estimateCostCents(input: {
   let usd = 0
   if (input.model.includes('gemini') && input.model.includes('lite')) {
     // Gemini Flash-Lite — priced conservatively above published Flash-Lite rates.
-    usd = (inT / 1_000_000) * 0.25 + (outT / 1_000_000) * 1.5
+    usd = (inT / 1_000_000) * 0.25 + (outT / 1_000_000) * 1.5 + img * 0.0005
   } else if (input.model.includes('gemini')) {
     // Gemini Flash
-    usd = (inT / 1_000_000) * 0.5 + (outT / 1_000_000) * 3
+    usd = (inT / 1_000_000) * 0.5 + (outT / 1_000_000) * 3 + img * 0.001
   } else if (input.model.includes('gpt-oss')) {
     // Groq gpt-oss-120b
     usd = (inT / 1_000_000) * 0.15 + (outT / 1_000_000) * 0.75

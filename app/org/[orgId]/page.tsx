@@ -1,5 +1,6 @@
 import { notFound, redirect } from 'next/navigation'
 import { and, desc, eq, gte, inArray, isNull, isNotNull, or } from 'drizzle-orm'
+import { detectEarlyWarnings } from '@/lib/brief/early-warnings'
 // Shifts: ongoing (no punch-out) per user.
 import { auth } from '@/auth'
 import { db, schema } from '@/lib/db/client'
@@ -407,6 +408,15 @@ export default async function OrgPage({ params }: { params: Promise<{ orgId: str
     slackTeamName: (org as { slackTeamName?: string | null }).slackTeamName ?? null,
   }
 
+  // Early warnings for the brief: likely to get stuck, not flagged yet. Never
+  // let this take the dashboard down — on any failure the brief just omits it.
+  const earlyWarnings = await detectEarlyWarnings({ orgId, userIds })
+    .then((ws) => ws.map((w) => ({ userId: w.userId, name: w.name, text: w.text, evidence: w.evidence })))
+    .catch((err) => {
+      console.error('[early-warnings] failed', err instanceof Error ? err.message : err)
+      return []
+    })
+
   return (
     <TeamDashboardClient
       orgId={orgId}
@@ -427,6 +437,7 @@ export default async function OrgPage({ params }: { params: Promise<{ orgId: str
         orgProductivity,
       }}
       blockers={blockers}
+      earlyWarnings={earlyWarnings}
       slackAlerts={slackAlerts.map((a) => {
         const m = members.find((mm) => mm.userId === a.userId)
         return {

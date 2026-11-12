@@ -7,15 +7,24 @@
 # runtime (see deploy/cloudrun.sh). Only NEXT_PUBLIC_* values are needed at
 # build time, passed as --build-arg.
 
+# pnpm is pinned to v10: with no version pinned, corepack resolves the newest
+# pnpm (v11), which fails `install` with ERR_PNPM_IGNORED_BUILDS because this
+# repo does not list which dependencies may run build scripts. v10 matches the
+# lockfile (v9.0) and only warns. The skipped scripts (esbuild, sharp,
+# unrs-resolver) ship prebuilt binaries, so nothing is lost.
+ARG PNPM_VERSION=10
+
 FROM node:20-bookworm-slim AS deps
+ARG PNPM_VERSION
 WORKDIR /app
-RUN corepack enable
+RUN npm install -g pnpm@${PNPM_VERSION}
 COPY package.json pnpm-lock.yaml ./
 RUN pnpm install --frozen-lockfile
 
 FROM node:20-bookworm-slim AS build
+ARG PNPM_VERSION
 WORKDIR /app
-RUN corepack enable
+RUN npm install -g pnpm@${PNPM_VERSION}
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 ARG NEXT_PUBLIC_APP_URL=https://marina.team

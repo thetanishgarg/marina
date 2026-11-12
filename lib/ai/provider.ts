@@ -10,7 +10,7 @@ export type GenerateOpts = {
 }
 
 export type AIProvider = {
-  name: 'gemini' | 'groq' | 'openai' // 'gemini' = parked provider in lib/ai/gemini.ts
+  name: 'gemini' | 'groq' | 'openai'
   model: string
   generate(messages: ChatMessage[], opts?: GenerateOpts): Promise<string>
 }

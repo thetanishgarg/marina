@@ -3,12 +3,26 @@
 import { useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { MarinaMark, MarinaPulse } from '@/components/marina-mark'
+import { CitedAnswer, type AnswerClaim, type AnswerSource } from '@/components/cited-answer'
 
 export type DockTurn = {
   role: 'user' | 'assistant'
   content: string
   failed?: boolean
   provider?: string
+  /** Per-claim citations, when the endpoint returns them. */
+  claims?: AnswerClaim[]
+  sources?: AnswerSource[]
+  droppedClaims?: number
+}
+
+export type DockAnswer = {
+  answer?: string
+  error?: string
+  provider?: string
+  claims?: AnswerClaim[]
+  sources?: AnswerSource[]
+  droppedClaims?: number
 }
 
 /**
@@ -40,7 +54,7 @@ export function AskMarinaDock({
   onAsk: (
     question: string,
     history: DockTurn[],
-  ) => Promise<{ answer?: string; error?: string; provider?: string }>
+  ) => Promise<DockAnswer>
 }) {
   const [turns, setTurns] = useState<DockTurn[]>([])
   const [input, setInput] = useState('')
@@ -102,7 +116,14 @@ export function AskMarinaDock({
         ...next,
         r.error
           ? { role: 'assistant', content: r.error, failed: true }
-          : { role: 'assistant', content: r.answer ?? 'No answer.', provider: r.provider },
+          : {
+              role: 'assistant',
+              content: r.answer ?? 'No answer.',
+              provider: r.provider,
+              claims: r.claims,
+              sources: r.sources,
+              droppedClaims: r.droppedClaims,
+            },
       ])
     } catch (err) {
       setTurns([
@@ -265,7 +286,11 @@ function DockChatTurn({ turn }: { turn: DockTurn }) {
           turn.failed ? 'bg-rose-50 text-rose-900 border border-rose-200' : 'bg-[var(--m-bg-soft)] text-[var(--m-ink)]'
         }`}
       >
-        {turn.content}
+        {turn.claims && turn.claims.length > 0 && !turn.failed ? (
+          <CitedAnswer claims={turn.claims} sources={turn.sources ?? []} droppedClaims={turn.droppedClaims} />
+        ) : (
+          turn.content
+        )}
         {turn.provider && !turn.failed && (
           <p className="text-[10px] text-[var(--m-ink-3)] mt-1 uppercase tracking-wider">via {turn.provider}</p>
         )}

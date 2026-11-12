@@ -8,6 +8,8 @@ import { getVisibleScope } from '@/lib/auth/scope'
 import { OrgSidebar } from '@/components/org-sidebar'
 import { MobileNav } from '@/components/mobile-nav'
 import { AnnouncementBanner } from '@/components/announcement-banner'
+import { SampleDataBanner } from '@/components/sample-data-banner'
+import { isSampleOrgName } from '@/lib/sample-org'
 
 export default async function OrgLayout({
   children,
@@ -129,6 +131,7 @@ export default async function OrgLayout({
         signOutAction={signOutAction}
       />
       <main className="bg-[var(--m-bg)] min-w-0">
+        {isSampleOrgName(org.name) && <SampleDataBanner />}
         <MobileNav orgName={org.name} />
         <AnnouncementBanner viewerRole={viewer.membership.role as 'admin' | 'manager' | 'lead' | 'member'} />
         <div className="px-4 pt-4 pb-10 sm:px-8 sm:pt-8 max-w-[1400px] mx-auto fade-in">

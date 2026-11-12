@@ -1,6 +1,4 @@
 import { AIProvider, AIProviderError, ChatMessage, GenerateOpts } from './provider'
-// PARKED: not wired into lib/ai/registry.ts yet (see the note there). Kept
-// compiling so it can be switched on with a two-line change.
 
 /**
  * Google Gemini via the Gemini API (AI Studio key, `GEMINI_API_KEY`).

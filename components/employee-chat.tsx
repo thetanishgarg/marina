@@ -44,7 +44,7 @@ export function EmployeeChat({
         if (!res.ok) {
           return { error: data?.error || 'Something went wrong on our side. Try again in a moment.' }
         }
-        return { answer: data.answer, provider: data.provider }
+        return { answer: data.answer, provider: data.provider, claims: data.claims, sources: data.sources, droppedClaims: data.droppedClaims }
       }}
     />
   )
