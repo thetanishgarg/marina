@@ -112,8 +112,10 @@ export async function computeDailyState(userId: number, day: Date | string = new
   const onlineHours = onlineSeconds / 3600
   const activeHours = activeSeconds / 3600
 
-  // Possibly dummying: agent reports a substantial active foreground window,
-  // but vision repeatedly shows the screen is actually idle / playing media.
+  // Stored as 'PossiblyDummying' (shown as "Needs a check-in", see
+  // state-labels.ts): the agent reports a substantial active foreground window
+  // while consecutive screen labels show no change. The reason text below is
+  // read by the manager AND the employee, so it states the signals neutrally.
   if (activeHours >= 2 && bestRun >= 3) {
     return {
       state: 'PossiblyDummying',
@@ -123,7 +125,7 @@ export async function computeDailyState(userId: number, day: Date | string = new
       focusWorkRatio,
       staticIdleRuns: bestRun,
       shotCount,
-      reason: `Agent reports ${activeHours.toFixed(1)}h active, but ${bestRun} consecutive screenshots showed a static / idle screen.`,
+      reason: `${activeHours.toFixed(1)}h of active time was recorded, while ${bestRun} screen check-ins in a row showed no change. The signals disagree, so a quick check-in is worth it.`,
     }
   }
 
@@ -137,11 +139,12 @@ export async function computeDailyState(userId: number, day: Date | string = new
       focusWorkRatio,
       staticIdleRuns: bestRun,
       shotCount,
-      reason: `Online ${onlineHours.toFixed(1)}h, focused on work (${focusWorkRatio}%) but no GitHub output — possible blocker.`,
+      reason: `Online ${onlineHours.toFixed(1)}h and focused on work (${focusWorkRatio}%), with no GitHub output yet. Something may be in the way.`,
     }
   }
 
-  // Disengaged: online but distracted with no output. A low focus ratio only
+  // Stored as 'Disengaged' (shown as "Needs a check-in"): online with no
+  // output and little time in work apps. A low focus ratio only
   // counts as "distracted" when we actually have screenshots to back it up —
   // with screenshots off (shotCount === 0) focusWorkRatio is 0 by absence, not
   // by evidence, so we must NOT label someone Disengaged on that alone.
@@ -154,7 +157,7 @@ export async function computeDailyState(userId: number, day: Date | string = new
       focusWorkRatio,
       staticIdleRuns: bestRun,
       shotCount,
-      reason: `Online ${onlineHours.toFixed(1)}h, only ${focusWorkRatio}% focus on work, no output.`,
+      reason: `Online ${onlineHours.toFixed(1)}h with no output logged yet and ${focusWorkRatio}% of screen check-ins in work apps. A check-in may help.`,
     }
   }
 

@@ -1,6 +1,7 @@
 'use client'
 
 import { useMemo } from 'react'
+import { STATE_DISPLAY } from '@/lib/engine/state-labels'
 import Link from 'next/link'
 import { CharacterAvatar } from '@/components/character-avatar'
 import { TeamMeetingScheduler } from '@/components/team-meeting-scheduler'
@@ -60,13 +61,15 @@ type Lead = {
   membershipId: number
 } | null
 
+// Labels come from the shared map so the manager and the employee read the
+// same words (see lib/engine/state-labels.ts).
 const STATE_STYLE: Record<string, { label: string; cls: string }> = {
-  High: { label: 'High output', cls: 'bg-[var(--m-good)]/12 text-[var(--m-good)]' },
-  Steady: { label: 'Steady', cls: 'bg-[var(--m-accent-soft)] text-[var(--m-accent-2)]' },
-  Blocked: { label: 'Blocked', cls: 'bg-[var(--m-bad)]/12 text-[var(--m-bad)]' },
-  Disengaged: { label: 'Disengaged', cls: 'bg-[var(--m-warn)]/15 text-[var(--m-warn)]' },
-  PossiblyDummying: { label: 'Needs a look', cls: 'bg-[var(--m-warn)]/15 text-[var(--m-warn)]' },
-  NoData: { label: 'No signal', cls: 'bg-[var(--m-bg-soft)] text-[var(--m-ink-4)]' },
+  High: { label: STATE_DISPLAY.High.label, cls: 'bg-[var(--m-good)]/12 text-[var(--m-good)]' },
+  Steady: { label: STATE_DISPLAY.Steady.label, cls: 'bg-[var(--m-accent-soft)] text-[var(--m-accent-2)]' },
+  Blocked: { label: STATE_DISPLAY.Blocked.label, cls: 'bg-[var(--m-bad)]/12 text-[var(--m-bad)]' },
+  Disengaged: { label: STATE_DISPLAY.Disengaged.label, cls: 'bg-[var(--m-warn)]/15 text-[var(--m-warn)]' },
+  PossiblyDummying: { label: STATE_DISPLAY.PossiblyDummying.label, cls: 'bg-[var(--m-warn)]/15 text-[var(--m-warn)]' },
+  NoData: { label: STATE_DISPLAY.NoData.label, cls: 'bg-[var(--m-bg-soft)] text-[var(--m-ink-4)]' },
 }
 
 const BREAK_LABEL: Record<string, string> = {

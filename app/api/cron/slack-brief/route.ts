@@ -3,6 +3,8 @@ import { db, schema } from '@/lib/db/client'
 import { authorizeCron } from '@/lib/cron/auth'
 import { getSlackInstall, sendSlackChannel } from '@/lib/slack/client'
 import { getTeamPulse } from '@/lib/brief/pulse'
+import { detectEarlyWarnings } from '@/lib/brief/early-warnings'
+import { and, eq, isNull } from 'drizzle-orm'
 
 export const runtime = 'nodejs'
 export const maxDuration = 120
@@ -43,10 +45,29 @@ async function run() {
       continue
     }
 
+    // Each line cites the blocker record it came from so the brief is checkable.
+    const appUrl = (process.env.NEXT_PUBLIC_APP_URL ?? '').replace(/\/$/, '')
+    const blockersUrl = appUrl ? `${appUrl}/org/${org.id}/blockers` : ''
     const blockerLines = pulse.blockers
       .slice(0, 5)
-      .map((b) => `• *${b.name}* — waiting on ${b.waitingOn} · ${b.sinceMin}m`)
+      .map((b) => `• *${b.name}* — waiting on ${b.waitingOn} · ${b.sinceMin}m · ${blockersUrl ? `<${blockersUrl}|blocker-${b.breakId}>` : `blocker-${b.breakId}`}`)
       .join('\n')
+
+    // Early warnings are inferred, not self-reported, and this posts to a team
+    // channel — so the channel gets a COUNT and a link only. Names and evidence
+    // stay on the manager's dashboard.
+    const memberRows = await db
+      .select({ userId: schema.memberships.userId })
+      .from(schema.memberships)
+      .where(and(eq(schema.memberships.orgId, org.id), isNull(schema.memberships.endedAt)))
+    const warningCount = await detectEarlyWarnings({ orgId: org.id, userIds: memberRows.map((m) => m.userId) })
+      .then((ws) => ws.length)
+      .catch(() => 0)
+    const dashboardUrl = appUrl ? `${appUrl}/org/${org.id}` : ''
+    const warningLine =
+      warningCount > 0
+        ? `*Might get stuck*\n${warningCount} teammate${warningCount === 1 ? '' : 's'} may be waiting on something without having flagged it${dashboardUrl ? ` · <${dashboardUrl}|see the brief>` : ''}`
+        : ''
 
     const blocks: unknown[] = [
       { type: 'header', text: { type: 'plain_text', text: 'Morning brief', emoji: true } },
@@ -61,6 +82,7 @@ async function run() {
       ...(pulse.blockers.length
         ? [{ type: 'section', text: { type: 'mrkdwn', text: `*Worth clearing first*\n${blockerLines}` } }]
         : []),
+      ...(warningLine ? [{ type: 'section', text: { type: 'mrkdwn', text: warningLine } }] : []),
       { type: 'context', elements: [{ type: 'mrkdwn', text: 'Marina · open the Home tab for your day' }] },
     ]
 

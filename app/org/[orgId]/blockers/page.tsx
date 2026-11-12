@@ -1,5 +1,6 @@
 import { notFound, redirect } from 'next/navigation'
 import { and, desc, eq, gte, inArray, isNotNull, isNull } from 'drizzle-orm'
+import { computeUnblockStats } from '@/lib/brief/early-warnings'
 import { db, schema } from '@/lib/db/client'
 import { HttpError, requireMembership } from '@/lib/auth/guards'
 import { getVisibleScope } from '@/lib/auth/scope'
@@ -13,8 +14,17 @@ export const runtime = 'nodejs'
  * just-resolved ones from the last 7 days. Designed so a manager can sit
  * down for 5 minutes once a day and clear the queue.
  */
-export default async function BlockersPage({ params }: { params: Promise<{ orgId: string }> }) {
+export default async function BlockersPage({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ orgId: string }>
+  searchParams: Promise<{ open?: string }>
+}) {
   const { orgId: raw } = await params
+  // `?open=<breakId>` opens that blocker's resolver straight away (used by the demo walkthrough).
+  const openParam = Number((await searchParams).open)
+  const initialOpenId = Number.isInteger(openParam) && openParam > 0 ? openParam : null
   const orgId = Number(raw)
   if (!Number.isInteger(orgId)) notFound()
 
@@ -76,6 +86,28 @@ export default async function BlockersPage({ params }: { params: Promise<{ orgId
       .limit(40),
   ])
 
+  // Time-to-unblock over the last 30 days, from resolved blocker records only.
+  const STATS_WINDOW_DAYS = 30
+  const statsSince = new Date(weekAgo.getTime() - (STATS_WINDOW_DAYS - 7) * 24 * 60 * 60 * 1000)
+  const statsRows = await db
+    .select({
+      userId: schema.breaks.userId,
+      startedAt: schema.breaks.startedAt,
+      endedAt: schema.breaks.endedAt,
+      resolvedByUserId: schema.breaks.resolvedByUserId,
+    })
+    .from(schema.breaks)
+    .where(
+      and(
+        eq(schema.breaks.orgId, orgId),
+        eq(schema.breaks.category, 'blocked'),
+        isNotNull(schema.breaks.endedAt),
+        gte(schema.breaks.endedAt, statsSince),
+        scopeFilter,
+      ),
+    )
+  const unblockStats = computeUnblockStats(statsRows, STATS_WINDOW_DAYS)
+
   // Hydrate waitingOnUser so the card can render avatar + name.
   const waitingOnIds = Array.from(
     new Set(
@@ -124,6 +156,8 @@ export default async function BlockersPage({ params }: { params: Promise<{ orgId
 
   return (
     <BlockersClient
+      initialOpenId={initialOpenId}
+      stats={unblockStats}
       orgId={orgId}
       active={active.map(serialise)}
       resolved={resolved.map(serialise)}

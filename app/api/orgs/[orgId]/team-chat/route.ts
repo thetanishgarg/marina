@@ -104,6 +104,10 @@ export async function POST(req: Request, ctx: { params: Promise<{ orgId: string 
 
     return NextResponse.json({
       answer: result.answer,
+      claims: result.claims,
+      sources: result.sources,
+      grounded: result.grounded,
+      droppedClaims: result.droppedClaims,
       provider: result.provider,
       model: result.model,
     })

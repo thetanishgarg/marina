@@ -5,6 +5,8 @@ import { db, schema } from '@/lib/db/client'
 import { listMembershipsForCurrentUser, roleAtLeast } from '@/lib/auth/guards'
 import { EmployeeSidebar } from '@/components/employee-sidebar'
 import { MobileNav } from '@/components/mobile-nav'
+import { SampleDataBanner } from '@/components/sample-data-banner'
+import { isSampleOrgName } from '@/lib/sample-org'
 
 export const dynamic = 'force-dynamic'
 
@@ -62,6 +64,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
         signOutAction={doSignOut}
       />
       <main className="bg-[var(--m-bg)] min-w-0">
+        {isSampleOrgName(primaryOrg.org.name) && <SampleDataBanner />}
         <MobileNav orgName="My console" />
         {children}
       </main>

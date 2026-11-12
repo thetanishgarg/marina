@@ -4,6 +4,7 @@ import { roleAtLeast } from '@/lib/auth/guards'
 import { getVisibleScope } from '@/lib/auth/scope'
 import { chatAboutEmployee } from '@/lib/ai/employee-chat'
 import { chatAboutTeam } from '@/lib/ai/team-chat'
+import type { CitedAnswer } from '@/lib/ai/citations'
 
 /**
  * "Ask Marina" inside Slack. A DM (or @mention) to the bot is treated as a
@@ -38,7 +39,7 @@ export async function handleAssistantMessage(
         history: [],
         question,
       })
-      answer = res.answer
+      answer = withSlackSources(res)
     } else {
       const res = await chatAboutEmployee({
         orgId: actor.org.id,
@@ -47,7 +48,7 @@ export async function handleAssistantMessage(
         history: [],
         question,
       })
-      answer = res.answer
+      answer = withSlackSources(res)
     }
     const trimmed = answer.slice(0, 2900)
     await sendSlackDm(install, slackUserId, {
@@ -59,4 +60,16 @@ export async function handleAssistantMessage(
       text: "I couldn't get to that just now — try again in a moment.",
     })
   }
+}
+
+/** Append the cited source items so a Slack answer can be checked too. */
+function withSlackSources(res: CitedAnswer): string {
+  if (res.sources.length === 0) return res.answer
+  const base = (process.env.NEXT_PUBLIC_APP_URL ?? '').replace(/\/$/, '')
+  const lines = res.sources.slice(0, 8).map((s) => {
+    const url = s.url ? (/^https?:\/\//.test(s.url) ? s.url : base ? `${base}${s.url}` : '') : ''
+    const label = s.label.replace(/[<>|]/g, ' ')
+    return url ? `• <${url}|${label}> (${s.id})` : `• ${label} (${s.id})`
+  })
+  return `${res.answer}\n\n*Sources*\n${lines.join('\n')}`
 }

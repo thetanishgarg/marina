@@ -35,7 +35,7 @@ const personal = {
   leave: { type: 'casual', remaining: 8, quota: 12 },
   pendingLeaves: 1,
 }
-const pulse = { total: 50, onShift: 5, blocked: 3, blockers: [{ userId: 1, name: 'Sneha', sinceMin: 40, waitingOn: 'Kavya' }] }
+const pulse = { total: 50, onShift: 5, blocked: 3, blockers: [{ breakId: 1, userId: 1, name: 'Sneha', sinceMin: 40, waitingOn: 'Kavya' }] }
 
 // Employee home (active shift, not a manager, no web url)
 const emp = appHomeView({ greeting: 'Good morning, Arjun', personal, isManager: false, pulse: null, orgId: 16, webUrl: '' })

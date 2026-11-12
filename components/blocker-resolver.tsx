@@ -7,6 +7,7 @@ import { Modal } from '@/components/modal'
 import { TutorialHint } from '@/components/tutorial-hint'
 import { useToast } from '@/components/toast'
 import { celebrate } from '@/components/celebration'
+import { BlockerDiagnosis } from '@/components/blocker-diagnosis'
 
 type Detail = {
   blocker: {
@@ -387,6 +388,24 @@ export function BlockerResolver({
             </div>
           ) : (
             <>
+              {/* Blocker Resolver v2 — cited diagnosis. "Use this draft" only
+                  prefills the route-to form below; the manager still sends it. */}
+              {breakId != null && (
+                <BlockerDiagnosis
+                  key={breakId}
+                  orgId={orgId}
+                  breakId={breakId}
+                  disabled={busy !== null}
+                  onUseDraft={(person, text) => {
+                    setRoutePicked({ userId: person.userId, login: person.login, name: person.name, characterKey: null })
+                    setRouteNote(text.slice(0, 500))
+                    setRouteQuery('')
+                    setShowSuggest(false)
+                    setShowRoute(true)
+                  }}
+                />
+              )}
+
               {/* PRIMARY ACTION — Unblock */}
               <section>
                 <div className="flex items-baseline justify-between gap-2 mb-1.5">

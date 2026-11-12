@@ -33,7 +33,10 @@ export const maxDuration = 60
  * Response:
  *   {
  *     answer: string,
- *     provider: 'groq' | 'openai',
+ *     claims: { text, sources: string[] }[],   // each claim + the source ids it cites
+ *     sources: { id, kind, label, url?, date? }[],
+ *     grounded: boolean, droppedClaims: number,
+ *     provider: 'gemini' | 'groq' | 'openai',
  *     model: string,
  *     usage: { contextBytes }
  *   }
@@ -160,6 +163,10 @@ export async function POST(
 
     return NextResponse.json({
       answer: result.answer,
+      claims: result.claims,
+      sources: result.sources,
+      grounded: result.grounded,
+      droppedClaims: result.droppedClaims,
       provider: result.provider,
       model: result.model,
       usage: { contextBytes: result.contextBytes },

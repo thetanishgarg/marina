@@ -1,8 +1,9 @@
 'use client'
 
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { CharacterAvatar } from '@/components/character-avatar'
+import type { UnblockStats } from '@/lib/brief/early-warnings'
 import { BlockerResolver } from '@/components/blocker-resolver'
 import { TutorialHint } from '@/components/tutorial-hint'
 
@@ -43,8 +44,14 @@ export default function BlockersClient({
   orgId,
   active,
   resolved,
+  initialOpenId = null,
+  stats,
 }: {
   orgId: number
+  /** Blocker to open on load, when it is one of the listed ones. */
+  initialOpenId?: number | null
+  /** Time-to-unblock figures from resolved blockers. */
+  stats?: UnblockStats
   active: Blocker[]
   resolved: Blocker[]
 }) {
@@ -52,6 +59,19 @@ export default function BlockersClient({
   const [tab, setTab] = useState<Tab>('active')
   const [search, setSearch] = useState('')
   const [openId, setOpenId] = useState<number | null>(null)
+
+  // Deep link (`?open=<breakId>`): open after mount, never during the first
+  // render — the modal is client-only, so opening it in initial state would
+  // not match the server HTML.
+  const deepLinkId =
+    initialOpenId != null && [...active, ...resolved].some((b) => b.id === initialOpenId) ? initialOpenId : null
+  useEffect(() => {
+    if (deepLinkId == null) return
+    const frame = requestAnimationFrame(() => setOpenId(deepLinkId))
+    return () => cancelAnimationFrame(frame)
+    // Only on first mount: later list refreshes must not reopen a closed modal.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   const list = tab === 'active' ? active : resolved
   const visible = useMemo(() => {
@@ -96,6 +116,30 @@ export default function BlockersClient({
           </div>
         )}
       </div>
+
+      {stats && (
+        <div className="mb-3 grid grid-cols-1 sm:grid-cols-3 gap-2" data-testid="unblock-stats">
+          <StatTile
+            label={`Median time to unblock · last ${stats.windowDays} days`}
+            value={stats.medianMinutes == null ? '—' : fmtDuration(stats.medianMinutes)}
+            hint={
+              stats.resolvedCount === 0
+                ? 'No blockers resolved in this period yet'
+                : `From ${stats.resolvedCount} resolved blocker${stats.resolvedCount === 1 ? '' : 's'}`
+            }
+          />
+          <StatTile
+            label="Cleared with help"
+            value={stats.medianHelpedMinutes == null ? '—' : fmtDuration(stats.medianHelpedMinutes)}
+            hint={`${stats.helpedCount} resolved by a manager or teammate (median)`}
+          />
+          <StatTile
+            label="Cleared on their own"
+            value={stats.medianSelfMinutes == null ? '—' : fmtDuration(stats.medianSelfMinutes)}
+            hint={`${stats.selfCount} ended by the blocked person (median)`}
+          />
+        </div>
+      )}
 
       <div className="mb-3">
         <TutorialHint id="blockers-page-intro" title="Run this like a manager queue">
@@ -272,6 +316,25 @@ function TabButton({
     >
       {children}
     </button>
+  )
+}
+
+function fmtDuration(minutes: number): string {
+  if (minutes < 60) return `${minutes}m`
+  const h = Math.floor(minutes / 60)
+  const m = minutes % 60
+  if (h < 24) return m ? `${h}h ${m}m` : `${h}h`
+  const d = Math.floor(h / 24)
+  return h % 24 ? `${d}d ${h % 24}h` : `${d}d`
+}
+
+function StatTile({ label, value, hint }: { label: string; value: string; hint: string }) {
+  return (
+    <div className="rounded-xl border border-[var(--m-border)] bg-white px-4 py-3">
+      <p className="text-[10.5px] uppercase tracking-wider text-[var(--m-ink-3)]">{label}</p>
+      <p className="mt-1 text-[22px] font-semibold text-[var(--m-ink)] tabular-nums leading-none">{value}</p>
+      <p className="mt-1.5 text-[11.5px] text-[var(--m-ink-3)]">{hint}</p>
+    </div>
   )
 }
 

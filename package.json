@@ -24,6 +24,10 @@
     "seed:demo": "tsx --env-file=.env scripts/seed-demo.ts",
     "seed:demo:dev": "tsx --env-file=.env scripts/seed-demo.ts",
     "seed:demo:prod": "tsx --env-file=.env.production scripts/seed-demo.ts",
+    "seed:sample": "tsx --env-file=.env scripts/seed-sample-org.ts",
+    "ai:check": "tsx --env-file=.env scripts/ai-live-check.ts",
+    "test:citations": "tsx scripts/test-citations.ts",
+    "test:unblock-stats": "tsx scripts/test-unblock-stats.ts",
     "seed:codes": "tsx --env-file=.env scripts/seed-early-bird-codes.ts",
     "seed:codes:dev": "tsx --env-file=.env scripts/seed-early-bird-codes.ts",
     "seed:codes:prod": "tsx --env-file=.env.production scripts/seed-early-bird-codes.ts"

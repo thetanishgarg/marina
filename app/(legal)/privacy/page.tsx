@@ -50,7 +50,7 @@ export default function PrivacyPage() {
       <ul className="list-disc pl-6 space-y-1">
         <li><strong>Neon</strong> (Postgres hosting) — primary data store.</li>
         <li><strong>Vercel</strong> (web hosting + edge functions).</li>
-        <li><strong>Groq</strong> — our primary AI provider for narratives, daily stories, briefs and shift verification. <strong>OpenAI</strong> is used only as a fallback if Groq is unavailable. We send only the minimum context needed.</li>
+        <li><strong>Google</strong> (Gemini API) — our primary AI provider for narratives, daily stories, briefs, chat answers and shift verification. <strong>Groq</strong> and then <strong>OpenAI</strong> are used only as fallbacks if Gemini is unavailable. We send only the minimum context needed.</li>
         <li><strong>Resend</strong> — transactional email.</li>
         <li><strong>Slack</strong> (only if your Customer configures a webhook).</li>
       </ul>

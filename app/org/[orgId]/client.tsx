@@ -12,7 +12,8 @@ import { CelebrationsWidget } from '@/components/celebrations-widget'
 import { BlockerResolver } from '@/components/blocker-resolver'
 import { ScheduleMeetingDialog } from '@/components/schedule-meeting-dialog'
 import { TeamChat } from '@/components/team-chat'
-import { MarinaBrief, marinaBriefLine } from '@/components/marina-brief'
+import { MarinaBrief, marinaBriefEvidence, marinaBriefLine, type BriefWarning } from '@/components/marina-brief'
+import { stateLabel } from '@/lib/engine/state-labels'
 import { ComingSoonAgent } from '@/components/coming-soon-agent'
 import { IntegrationsPanel } from '@/components/integrations-panel'
 import { NextMeetingBanner } from '@/components/next-meeting-banner'
@@ -176,6 +177,7 @@ export default function TeamDashboardClient({
   members,
   teams,
   blockers,
+  earlyWarnings = [],
   slackAlerts,
   pendingLeaves,
   recentBreaks,
@@ -191,6 +193,8 @@ export default function TeamDashboardClient({
   members: MemberCard[]
   teams: { id: number; name: string; color: string | null }[]
   blockers: Blocker[]
+  /** People likely to get stuck who have not flagged a blocker yet. */
+  earlyWarnings?: BriefWarning[]
   slackAlerts: SlackAlert[]
   pendingLeaves: PendingLeave[]
   recentBreaks: RecentBreak[]
@@ -381,8 +385,8 @@ export default function TeamDashboardClient({
         picks.push({
           kind: 'inactive',
           member: m,
-          label: 'Looks inactive',
-          detail: m.dailyState.reason || 'Low output despite being on-shift.',
+          label: stateLabel(m.dailyState.state),
+          detail: m.dailyState.reason || 'Quiet signals so far today. A quick check-in may help.',
         })
       }
     }
@@ -418,7 +422,12 @@ export default function TeamDashboardClient({
       {/* Marina's morning brief — the persona-led hero. She greets the manager
           and tells them, in her own voice, what (if anything) needs them. */}
       <div data-tour="brief">
-        <MarinaBrief greeting={greeting} line={marinaBriefLine(snapshot)} />
+        <MarinaBrief
+          greeting={greeting}
+          line={marinaBriefLine(snapshot)}
+          evidence={marinaBriefEvidence(orgId, snapshot, blockers)}
+          warnings={earlyWarnings}
+        />
       </div>
 
       {/* Desktop agent is on hold — a dismissible "coming soon" teaser. The team
@@ -713,14 +722,14 @@ function SlackingPanel({
       <div className="px-5 py-3 border-b border-amber-100 flex items-baseline justify-between gap-3 flex-wrap">
         <div className="flex items-baseline gap-2">
           <h2 className="text-[14px] font-semibold text-amber-900">
-            Slacking detected
+            May need a check-in
           </h2>
           <span className="text-[12px] text-amber-700 font-medium tabular-nums">
             {alerts.length}
           </span>
         </div>
         <span className="text-[11px] text-amber-700/80">
-          Sustained non-work content in the last 30 min · on-shift only
+          Mostly non-work apps in the last 30 min · on-shift only · a prompt to ask, not a verdict
         </span>
       </div>
       <ul className="divide-y divide-amber-100">
@@ -745,11 +754,11 @@ function SlackingPanel({
                 <span className="text-amber-700"> · {slackTopicLabel(a)}</span>
               </p>
               <p className="text-[11.5px] text-amber-700/80">
-                {a.unproductiveCount} of last {a.totalCount} screenshots flagged in {a.minutes} min
+                {a.unproductiveCount} of the last {a.totalCount} screen check-ins were outside work apps ({a.minutes} min)
               </p>
             </div>
             <span className="text-[11px] text-amber-700 font-medium">
-              Investigate →
+              Check in →
             </span>
           </li>
         ))}

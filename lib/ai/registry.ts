@@ -1,32 +1,21 @@
 import { AIProvider, AIProviderError, ChatMessage, GenerateOpts } from './provider'
+import { GeminiProvider } from './gemini'
 import { GroqProvider } from './groq'
 import { OpenAIProvider } from './openai'
 
-// ─── Google Gemini: parked for later ───────────────────────────────────────
-// lib/ai/gemini.ts holds a complete GeminiProvider (REST, JSON mode, minimal
-// thinking, retry/backoff, auth cooldown). It is switched off for now because
-// the current AI Studio key's project has no Gemini free tier enabled
-// (generateContent → 403 "free tier is not available for this project").
-//
-// To turn Gemini on once the key works:
-//   1. Uncomment the import below and the `gemini` entries marked GEMINI.
-//   2. Set DEFAULT_AI_PROVIDER=gemini (and NEXT_PUBLIC_DEFAULT_AI_PROVIDER).
-//   3. (provider.ts already allows the 'gemini' name.)
-//   4. Update the sub-processor lists in app/(legal)/privacy + dpa.
-// import { GeminiProvider } from './gemini' // GEMINI
-// ───────────────────────────────────────────────────────────────────────────
-
-export type ProviderName = 'groq' | 'openai' // GEMINI: | 'gemini'
-export const PROVIDER_NAMES: readonly ProviderName[] = ['groq', 'openai'] // GEMINI: put 'gemini' first
+// Google Gemini is MARINA's primary model. Groq and OpenAI stay wired as
+// automatic fallbacks, tried in this order when Gemini fails or has no key.
+export type ProviderName = 'gemini' | 'groq' | 'openai'
+export const PROVIDER_NAMES: readonly ProviderName[] = ['gemini', 'groq', 'openai']
 
 export function isProviderName(v: unknown): v is ProviderName {
   return typeof v === 'string' && (PROVIDER_NAMES as readonly string[]).includes(v)
 }
 
-/** Groq is MARINA's primary model today; OpenAI is the fallback. */
+/** Gemini is the default; override with DEFAULT_AI_PROVIDER. */
 function defaultProvider(): ProviderName {
   const env = process.env.DEFAULT_AI_PROVIDER
-  return isProviderName(env) ? env : 'groq'
+  return isProviderName(env) ? env : 'gemini'
 }
 
 const cache: Partial<Record<ProviderName, AIProvider>> = {}
@@ -34,15 +23,19 @@ const cache: Partial<Record<ProviderName, AIProvider>> = {}
 export function getProvider(name?: ProviderName): AIProvider {
   const resolved = name ?? defaultProvider()
   if (cache[resolved]) return cache[resolved]!
-  const provider: AIProvider = resolved === 'openai' ? new OpenAIProvider() : new GroqProvider()
-  // GEMINI: : resolved === 'gemini' ? new GeminiProvider()
+  const provider: AIProvider =
+    resolved === 'gemini'
+      ? new GeminiProvider()
+      : resolved === 'openai'
+        ? new OpenAIProvider()
+        : new GroqProvider()
   cache[resolved] = provider
   return provider
 }
 
 /**
  * Try the preferred provider, then every other configured one in order
- * (groq → openai). A provider with no API key is skipped silently,
+ * (gemini → groq → openai). A provider with no API key is skipped silently,
  * so a deployment only needs the keys it actually has.
  */
 export async function generateWithFallback(

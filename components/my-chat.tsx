@@ -1,8 +1,15 @@
 'use client'
 
 import { useRef, useState } from 'react'
+import { CitedAnswer, type AnswerClaim, type AnswerSource } from '@/components/cited-answer'
 
-type Turn = { role: 'user' | 'assistant'; content: string }
+type Turn = {
+  role: 'user' | 'assistant'
+  content: string
+  claims?: AnswerClaim[]
+  sources?: AnswerSource[]
+  droppedClaims?: number
+}
 
 const SUGGESTIONS = [
   'What did I ship this week?',
@@ -25,7 +32,7 @@ export function MyChat() {
   async function ask(q: string) {
     const question = q.trim()
     if (!question || busy) return
-    const history = turns
+    const history = turns.map((t) => ({ role: t.role, content: t.content }))
     setTurns((t) => [...t, { role: 'user', content: question }])
     setValue('')
     setBusy(true)
@@ -37,7 +44,12 @@ export function MyChat() {
       })
       const data = await res.json()
       const answer = res.ok ? data.answer : `Sorry — I couldn't answer that (${data?.error ?? 'error'}).`
-      setTurns((t) => [...t, { role: 'assistant', content: answer }])
+      setTurns((t) => [
+        ...t,
+        res.ok
+          ? { role: 'assistant', content: answer, claims: data.claims, sources: data.sources, droppedClaims: data.droppedClaims }
+          : { role: 'assistant', content: answer },
+      ])
     } catch {
       setTurns((t) => [...t, { role: 'assistant', content: "Sorry — something went wrong. Try again." }])
     } finally {
@@ -75,7 +87,11 @@ export function MyChat() {
                     : 'bg-[var(--m-bg-soft)] text-[var(--m-ink)] rounded-bl-md'
                 }`}
               >
-                {t.content}
+                {t.claims && t.claims.length > 0 ? (
+                  <CitedAnswer claims={t.claims} sources={t.sources ?? []} droppedClaims={t.droppedClaims} />
+                ) : (
+                  t.content
+                )}
               </div>
             </div>
           ))

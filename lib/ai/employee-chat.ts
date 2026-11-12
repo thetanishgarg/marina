@@ -1,6 +1,6 @@
 import { and, desc, eq, gte, isNull } from 'drizzle-orm'
 import { db, schema } from '@/lib/db/client'
-import { generateWithFallback } from '@/lib/ai/registry'
+import { citationRules, generateCitedAnswer, githubKind, SourceRegistry, type CitedAnswer } from '@/lib/ai/citations'
 import type { ChatMessage } from '@/lib/ai/provider'
 import { PRODUCT_KNOWLEDGE } from '@/lib/ai/product-knowledge'
 
@@ -37,8 +37,11 @@ export async function buildEmployeeContext(input: {
   userId: number
   membershipId: number
   windowDays?: number
+  /** Collects a citable source item for every row put in the context. */
+  registry?: SourceRegistry
 }): Promise<string> {
   const windowDays = input.windowDays ?? 30
+  const registry = input.registry ?? new SourceRegistry()
   const since = new Date(Date.now() - windowDays * DAY_MS)
   const sinceIso = since.toISOString().slice(0, 10)
 
@@ -135,6 +138,11 @@ export async function buildEmployeeContext(input: {
 
   if (!user || !membership) return 'No employee data available.'
 
+  // Every row below carries a `src` id registered here, so the model can cite
+  // it and the server can verify the citation afterwards.
+  const profileUrl = `/org/${input.orgId}/people/${input.membershipId}`
+  const isoDay = (d: Date) => d.toISOString().slice(0, 10)
+
   // Compact JSON-like context — much cheaper than verbose prose, and the
   // model handles structured data well.
   const ctx = {
@@ -152,6 +160,11 @@ export async function buildEmployeeContext(input: {
     windowStart: sinceIso,
     today: new Date().toISOString().slice(0, 10),
     shifts: shifts.map((s) => ({
+      src: registry.add('shift', s.id, {
+        label: `Shift on ${isoDay(s.punchedInAt)}${s.workSummary ? `: ${s.workSummary}` : ''}`,
+        url: profileUrl,
+        date: isoDay(s.punchedInAt),
+      }),
       date: s.punchedInAt.toISOString().slice(0, 10),
       punchedInAt: s.punchedInAt.toISOString(),
       punchedOutAt: s.punchedOutAt?.toISOString() ?? null,
@@ -161,6 +174,11 @@ export async function buildEmployeeContext(input: {
       summary: s.workSummary,
     })),
     breaks: breaks.map((b) => ({
+      src: registry.add(b.category === 'blocked' ? 'blocker' : 'break', b.id, {
+        label: `${b.category === 'blocked' ? 'Blocker' : 'Break'}: ${b.reason}`,
+        url: b.category === 'blocked' ? `/org/${input.orgId}/blockers` : profileUrl,
+        date: isoDay(b.startedAt),
+      }),
       date: b.startedAt.toISOString().slice(0, 10),
       category: b.category,
       reason: b.reason,
@@ -173,6 +191,11 @@ export async function buildEmployeeContext(input: {
       stillActive: !b.endedAt,
     })),
     deliverables: deliverables.map((d) => ({
+      src: registry.add('deliverable', d.id, {
+        label: `Logged deliverable: ${d.title}`,
+        url: d.url ?? profileUrl,
+        date: isoDay(d.completedAt),
+      }),
       title: d.title,
       url: d.url,
       detail: d.detail,
@@ -181,6 +204,11 @@ export async function buildEmployeeContext(input: {
       verificationStatus: d.verificationStatus,
     })),
     leaves: leaves.map((l) => ({
+      src: registry.add('leave', l.id, {
+        label: `Leave request (${l.leaveType}, ${l.status}): ${l.startDate} to ${l.endDate}`,
+        url: `/org/${input.orgId}/leaves`,
+        date: l.startDate,
+      }),
       startDate: l.startDate,
       endDate: l.endDate,
       leaveType: l.leaveType,
@@ -189,6 +217,11 @@ export async function buildEmployeeContext(input: {
       decidedNote: l.decidedNote,
     })),
     meetings: meetings.map((m) => ({
+      src: registry.add('one_on_one', m.id, {
+        label: `Scheduled meeting: ${m.title}`,
+        url: profileUrl,
+        date: isoDay(m.startAt),
+      }),
       title: m.title,
       startAt: m.startAt.toISOString(),
       endAt: m.endAt.toISOString(),
@@ -196,6 +229,11 @@ export async function buildEmployeeContext(input: {
       hadConference: !!m.conferenceUrl,
     })),
     githubEvents: githubEvents.map((g) => ({
+      src: registry.add(githubKind(g.type), g.id, {
+        label: `${g.type === 'commit' ? 'Commit' : g.type === 'pr_opened' ? 'PR' : g.type === 'pr_reviewed' ? 'Review' : 'Issue'} in ${g.repo}: ${g.title}`,
+        url: g.url,
+        date: isoDay(g.occurredAt),
+      }),
       date: g.occurredAt.toISOString().slice(0, 10),
       type: g.type,
       repo: g.repo,
@@ -203,6 +241,11 @@ export async function buildEmployeeContext(input: {
     })),
     latestNarrative: narrative
       ? {
+          src: registry.add('ai_summary', `narrative-${narrative.id}`, {
+            label: 'MARINA narrative (AI-written summary, not a primary record)',
+            url: profileUrl,
+            date: isoDay(narrative.createdAt),
+          }),
           createdAt: narrative.createdAt.toISOString(),
           signal: narrative.signal,
           body: narrative.body,
@@ -210,6 +253,11 @@ export async function buildEmployeeContext(input: {
       : null,
     todayStory: todayStory
       ? {
+          src: registry.add('ai_summary', `story-${todayStory.id}`, {
+            label: 'MARINA daily story (AI-written summary, not a primary record)',
+            url: profileUrl,
+            date: isoDay(todayStory.generatedAt),
+          }),
           generatedAt: todayStory.generatedAt.toISOString(),
           narrative: todayStory.narrative,
         }
@@ -257,8 +305,9 @@ RULES — these are not optional:
 6. If asked for a recommendation (e.g. "should I escalate?"), describe the trade-offs based on the data. Don't make the decision.
 7. Never expose raw JSON or internal IDs in your reply.
 8. If the user asks about another person, refuse politely — you only have data for the open profile.
+9. Prefer primary records (commits, PRs, deliverables, shifts, blockers) over the AI-written narrative/story rows. No preambles like "Based on the data…". Just answer.
 
-Format: plain text or short markdown lists. No headings, no preambles like "Based on the data…" or "Here's what I found." Just answer.`
+${citationRules({ allowProduct: true })}`
 
 export type ChatTurn = { role: 'user' | 'assistant'; content: string }
 
@@ -268,11 +317,13 @@ export async function chatAboutEmployee(input: {
   membershipId: number
   history: ChatTurn[]
   question: string
-}): Promise<{ answer: string; provider: string; model: string; contextBytes: number }> {
+}): Promise<CitedAnswer & { contextBytes: number }> {
+  const registry = new SourceRegistry()
   const ctxBlob = await buildEmployeeContext({
     orgId: input.orgId,
     userId: input.userId,
     membershipId: input.membershipId,
+    registry,
   })
 
   const messages: ChatMessage[] = [
@@ -289,15 +340,6 @@ export async function chatAboutEmployee(input: {
     { role: 'user', content: input.question },
   ]
 
-  const { text, provider, model } = await generateWithFallback(messages, {
-    temperature: 0.3,
-    maxTokens: 600,
-  })
-
-  return {
-    answer: text.trim(),
-    provider,
-    model,
-    contextBytes: ctxBlob.length,
-  }
+  const result = await generateCitedAnswer(messages, registry, { allowProduct: true, maxTokens: 1200 })
+  return { ...result, contextBytes: ctxBlob.length }
 }
