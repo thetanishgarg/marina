@@ -4,6 +4,7 @@ import { db, schema } from '@/lib/db/client'
 import { authorizeCron } from '@/lib/cron/auth'
 import { upsertDailyState } from '@/lib/engine/state'
 import { log } from '@/lib/log/log'
+import { chainCron } from '@/lib/cron/chain'
 
 export const runtime = 'nodejs'
 export const maxDuration = 300
@@ -16,14 +17,14 @@ type Cursor = { day: string; lastUserId: number }
 
 export async function GET(req: Request) {
   if (!authorizeCron(req)) return NextResponse.json({ error: 'forbidden' }, { status: 403 })
-  return run()
+  return run(req)
 }
 export async function POST(req: Request) {
   if (!authorizeCron(req)) return NextResponse.json({ error: 'forbidden' }, { status: 403 })
-  return run()
+  return run(req)
 }
 
-async function run() {
+async function run(req: Request) {
   const started = Date.now()
   const today = new Date()
   const yesterday = new Date(today)
@@ -41,32 +42,42 @@ async function run() {
   }
   const startAfterId = prevCursor && prevCursor.day === todayKey ? prevCursor.lastUserId : 0
 
-  const users = await db
-    .select({ id: schema.users.id })
-    .from(schema.users)
-    .where(gt(schema.users.id, startAfterId))
-    .orderBy(asc(schema.users.id))
-    .limit(BATCH_SIZE)
-
+  // Process batches until the user table is drained or the time budget runs
+  // out (previously: ONE batch per day, so big orgs never finished).
   let processed = 0
   let lastUserId = startAfterId
+  let drained = false
   const errors: Array<{ userId: number; error: string }> = []
 
-  for (const u of users) {
-    if (Date.now() - started > TIME_BUDGET_MS) break
-    for (const day of [yesterday, today]) {
-      try {
-        await upsertDailyState(u.id, day)
-        processed++
-      } catch (err) {
-        errors.push({ userId: u.id, error: String(err) })
-        log.error('cron.states.user_failed', { userId: u.id, err: String(err) })
-      }
+  outer: while (Date.now() - started < TIME_BUDGET_MS) {
+    const users = await db
+      .select({ id: schema.users.id })
+      .from(schema.users)
+      .where(gt(schema.users.id, lastUserId))
+      .orderBy(asc(schema.users.id))
+      .limit(BATCH_SIZE)
+    if (users.length === 0) {
+      drained = true
+      break
     }
-    lastUserId = u.id
+    for (const u of users) {
+      if (Date.now() - started > TIME_BUDGET_MS) break outer
+      for (const day of [yesterday, today]) {
+        try {
+          await upsertDailyState(u.id, day)
+          processed++
+        } catch (err) {
+          errors.push({ userId: u.id, error: String(err) })
+          log.error('cron.states.user_failed', { userId: u.id, err: String(err) })
+        }
+      }
+      lastUserId = u.id
+    }
+    if (users.length < BATCH_SIZE) {
+      drained = true
+      break
+    }
   }
-
-  const drained = users.length < BATCH_SIZE
   const nextCursor: Cursor = drained
     ? { day: todayKey, lastUserId: 0 }
     : { day: todayKey, lastUserId }
@@ -79,7 +90,9 @@ async function run() {
       set: { cursor: JSON.stringify(nextCursor), updatedAt: new Date() },
     })
 
-  log.info('cron.states.done', { processed, errors: errors.length, drained })
+  const chained = drained ? false : chainCron(req, 'states')
+
+  log.info('cron.states.done', { processed, errors: errors.length, drained, chained })
   return NextResponse.json({ ok: true, processed, errors, drained, nextCursor })
 }
 

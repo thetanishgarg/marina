@@ -1,3 +1,4 @@
+import { isProviderName } from '@/lib/ai/registry'
 import { NextResponse } from 'next/server'
 import { and, eq, gte } from 'drizzle-orm'
 import { auth } from '@/auth'
@@ -15,7 +16,7 @@ export async function POST(req: Request) {
 
   const url = new URL(req.url)
   const providerParam = url.searchParams.get('provider')
-  const preferred = providerParam === 'groq' || providerParam === 'openai' ? providerParam : undefined
+  const preferred = isProviderName(providerParam) ? providerParam : undefined
 
   const periodEnd = new Date()
   const periodStart = new Date(periodEnd.getTime() - 7 * 24 * 60 * 60 * 1000)

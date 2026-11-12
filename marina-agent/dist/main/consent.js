@@ -3,6 +3,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
+exports.requiredPolicyVersion = requiredPolicyVersion;
 exports.hasConsented = hasConsented;
 exports.recordConsent = recordConsent;
 exports.showConsentWindow = showConsentWindow;
@@ -14,12 +15,22 @@ const config_1 = require("./config");
 const window_utils_1 = require("./window-utils");
 let consentWindow = null;
 let resolver = null;
+/**
+ * The policy version the user must have accepted. The server is the source of
+ * truth (heartbeat `policyVersion`, from MARINA_POLICY_VERSION) so bumping it
+ * there re-prompts every installed agent; the compiled-in POLICY_VERSION is
+ * only the fallback before the first heartbeat.
+ */
+function requiredPolicyVersion() {
+    return (0, store_1.get)(store_1.STORE_KEYS.requiredPolicyVersion) ?? config_1.POLICY_VERSION;
+}
 function hasConsented() {
-    return (0, store_1.get)(store_1.STORE_KEYS.consentAt) != null && (0, store_1.get)(store_1.STORE_KEYS.policyVersionAccepted) === config_1.POLICY_VERSION;
+    return ((0, store_1.get)(store_1.STORE_KEYS.consentAt) != null &&
+        (0, store_1.get)(store_1.STORE_KEYS.policyVersionAccepted) === requiredPolicyVersion());
 }
 function recordConsent() {
     (0, store_1.set)(store_1.STORE_KEYS.consentAt, new Date().toISOString());
-    (0, store_1.set)(store_1.STORE_KEYS.policyVersionAccepted, config_1.POLICY_VERSION);
+    (0, store_1.set)(store_1.STORE_KEYS.policyVersionAccepted, requiredPolicyVersion());
 }
 async function showConsentWindow() {
     if (consentWindow) {

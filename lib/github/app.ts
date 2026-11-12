@@ -1,5 +1,4 @@
 import { createSign } from 'crypto'
-import { existsSync, readFileSync } from 'fs'
 import { Octokit } from '@octokit/rest'
 
 /**
@@ -43,7 +42,14 @@ function b64url(input: Buffer | string): string {
  */
 function normalizePrivateKey(raw: string): string {
   let k = raw.trim()
-  if (!k.includes('BEGIN') && existsSync(k)) k = readFileSync(k, 'utf8')
+  // Path-to-.pem is a local-dev convenience only. Loading `fs` lazily (and
+  // never in production) keeps Next's file tracer from pulling the whole repo
+  // into this route's serverless bundle on Vercel.
+  if (!k.includes('BEGIN') && process.env.NODE_ENV !== 'production') {
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const fs = require('node:fs') as typeof import('node:fs')
+    if (fs.existsSync(k)) k = fs.readFileSync(k, 'utf8')
+  }
   if (k.includes('\\n')) k = k.replace(/\\n/g, '\n')
   const m = k.match(/-----BEGIN ([A-Z0-9 ]+?)-----([\s\S]*?)-----END \1-----/)
   if (m) {

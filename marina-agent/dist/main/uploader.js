@@ -5,6 +5,7 @@ exports.flush = flush;
 exports.startUploader = startUploader;
 exports.stopUploader = stopUploader;
 exports.drainOnQuit = drainOnQuit;
+const heartbeat_1 = require("./heartbeat");
 const api_1 = require("./api");
 const store_1 = require("./store");
 const state_1 = require("./state");
@@ -75,8 +76,8 @@ async function flush() {
             catch (err) {
                 const e = err;
                 if (e.status === 401) {
-                    // Token revoked. Stop trying and surface to UI.
-                    state_1.bus.patch({ paired: false, lastError: 'token revoked' });
+                    // Token revoked — stop, clear and send the user to re-pair.
+                    (0, heartbeat_1.handleRevoked)();
                     break;
                 }
                 // Network / 5xx — back off with jitter.

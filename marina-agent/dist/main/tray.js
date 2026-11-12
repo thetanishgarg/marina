@@ -74,6 +74,16 @@ function statusLine() {
     const s = state_1.bus.get();
     if (!s.paired)
         return 'Not paired';
+    // Personal mode (no org): there are no shifts/punch — tracking runs
+    // continuously and feeds the user's own journal, so the status is about
+    // tracking, not attendance.
+    if (s.primaryOrgId == null) {
+        if (s.paused)
+            return 'Paused';
+        if (s.lastError)
+            return s.lastError;
+        return `Tracking your focus${s.pendingCount > 0 ? ` · ${s.pendingCount} pending` : ''}`;
+    }
     if (!s.activeShift)
         return 'Off-clock · not punched in';
     if (s.activeBreak) {
@@ -113,51 +123,73 @@ function rebuild() {
     else if (state.userLogin) {
         items.push({ label: `@${state.userLogin}`, enabled: false });
     }
+    // Today — same numbers as the web "Your day" card (from /api/agent/day).
+    if (state.paired && state.today?.punchedIn) {
+        const t = state.today;
+        items.push({
+            label: `Today · ${t.productivity}% focus · ${t.deliverablesToday} shipped`,
+            enabled: false,
+        });
+        if (t.nextMeetingAt && t.nextMeetingTitle) {
+            const at = new Date(t.nextMeetingAt).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+            const title = t.nextMeetingTitle.length > 32 ? `${t.nextMeetingTitle.slice(0, 32)}…` : t.nextMeetingTitle;
+            items.push({ label: `Next · ${title} at ${at}`, enabled: false });
+        }
+    }
     items.push({ type: 'separator' });
     if (state.paired) {
-        // Punch state — the primary action
-        if (!state.activeShift) {
-            items.push({
-                label: '▶︎  Punch in for today',
-                click: () => void (0, punch_1.performPunchIn)(),
-            });
-        }
-        else {
-            items.push({
-                label: '⏏︎  Punch out…',
-                click: () => (0, punch_1.openPunchOutWindow)(),
-            });
-            items.push({ type: 'separator' });
-            if (state.activeBreak) {
+        // Employer/attendance actions (punch, breaks, mark-done, leave) only exist
+        // for users who belong to an org. A standalone (personal) user has no
+        // employer — their agent is purely a private focus tracker, so we omit all
+        // of these and keep just the tracking controls below.
+        const hasOrg = state.primaryOrgId != null;
+        if (hasOrg) {
+            // Punch state — the primary action
+            if (!state.activeShift) {
                 items.push({
-                    label: `End break · ${state.activeBreak.reason.slice(0, 40)}${state.activeBreak.reason.length > 40 ? '…' : ''}`,
-                    click: () => (0, break_1.openBreakWindow)(),
+                    label: '▶︎  Punch in for today',
+                    click: () => void (0, punch_1.performPunchIn)(),
                 });
             }
             else {
                 items.push({
-                    label: 'Take a break…',
-                    accelerator: process.platform === 'darwin' ? 'Cmd+Shift+B' : 'Ctrl+Shift+B',
-                    click: () => (0, break_1.openBreakWindow)(),
+                    label: '⏏︎  Punch out…',
+                    click: () => (0, punch_1.openPunchOutWindow)(),
+                });
+                items.push({ type: 'separator' });
+                if (state.activeBreak) {
+                    items.push({
+                        label: `End break · ${state.activeBreak.reason.slice(0, 40)}${state.activeBreak.reason.length > 40 ? '…' : ''}`,
+                        click: () => (0, break_1.openBreakWindow)(),
+                    });
+                }
+                else {
+                    items.push({
+                        label: 'Take a break…',
+                        accelerator: process.platform === 'darwin' ? 'Cmd+Shift+B' : 'Ctrl+Shift+B',
+                        click: () => (0, break_1.openBreakWindow)(),
+                    });
+                }
+                // "Mark work as done" — the fast path that puts visible output into the
+                // manager's daily digest. Available whenever the user is on the clock.
+                items.push({
+                    label: 'Mark work as done…',
+                    accelerator: process.platform === 'darwin' ? 'Cmd+Shift+D' : 'Ctrl+Shift+D',
+                    click: () => (0, done_1.openDoneWindow)(),
                 });
             }
-            // "Mark work as done" — the fast path that puts visible output into the
-            // manager's daily digest. Available whenever the user is on the clock.
             items.push({
-                label: 'Mark work as done…',
-                accelerator: process.platform === 'darwin' ? 'Cmd+Shift+D' : 'Ctrl+Shift+D',
-                click: () => (0, done_1.openDoneWindow)(),
+                label: 'Request leave…',
+                click: () => (0, leave_1.openLeaveWindow)(),
             });
+            items.push({ type: 'separator' });
         }
         items.push({
-            label: 'Request leave…',
-            click: () => (0, leave_1.openLeaveWindow)(),
-        });
-        items.push({ type: 'separator' });
-        items.push({
+            // Personal users track continuously (no shift), so pause is always
+            // available; org users can only pause while punched in.
             label: state.paused ? 'Resume tracking' : 'Pause tracking',
             click: () => void togglePause(),
-            enabled: !!state.activeShift,
+            enabled: hasOrg ? !!state.activeShift : true,
         });
         items.push({
             label: 'Open dashboard',

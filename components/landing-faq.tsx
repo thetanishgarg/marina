@@ -17,7 +17,7 @@ export const FAQ_ITEMS: { q: string; a: string }[] = [
   },
   {
     q: 'How is this different from a Slack standup bot like Geekbot?',
-    a: 'A standup bot collects text. MARINA understands the work. It pulls real GitHub activity, calendar load and focus time into one picture, drafts your standup for you, auto-detects blockers, and lets you ask it anything about anyone and get a grounded, cited answer in two seconds. The standup is one feature, not the whole product.',
+    a: 'A standup bot collects text. MARINA understands the work. It pulls real GitHub activity, calendar load and focus time into one picture, drafts your standup for you, auto-detects blockers, and lets you ask it anything about anyone and get a grounded, cited answer in seconds. The standup is one feature, not the whole product.',
   },
   {
     q: 'What does it cost?',

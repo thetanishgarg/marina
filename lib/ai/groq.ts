@@ -60,11 +60,17 @@ export class GroqProvider implements AIProvider {
   name = 'groq' as const
   model: string
   private client: Groq
+  private get isReasoning(): boolean {
+    return this.model.includes('gpt-oss')
+  }
 
   constructor(opts: { model?: string } = {}) {
     const apiKey = process.env.GROQ_API_KEY
     if (!apiKey) throw new AIProviderError('groq', 'GROQ_API_KEY is not set')
-    this.model = opts.model ?? 'llama-3.3-70b-versatile'
+    // llama-3.3-70b-versatile was retired by Groq (404 model_not_found), which
+    // silently took down every AI feature. gpt-oss-120b is Groq's current
+    // flagship open model; override with GROQ_MODEL.
+    this.model = opts.model ?? process.env.GROQ_MODEL ?? 'openai/gpt-oss-120b'
     this.client = new Groq({ apiKey })
   }
 
@@ -83,8 +89,11 @@ export class GroqProvider implements AIProvider {
         model: this.model,
         messages,
         temperature: opts.temperature ?? 0.6,
-        max_tokens: opts.maxTokens ?? 1024,
+        // gpt-oss models spend reasoning tokens inside max_tokens; keep the
+        // caller's budget for the visible answer by adding headroom.
+        max_tokens: (opts.maxTokens ?? 1024) + (this.isReasoning ? 768 : 0),
         response_format: opts.responseFormat === 'json' ? { type: 'json_object' } : undefined,
+        ...(this.isReasoning ? { reasoning_effort: 'low' as const } : {}),
       })
       return res.choices[0]?.message?.content ?? ''
     } catch (err) {

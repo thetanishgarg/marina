@@ -10,6 +10,10 @@ exports.punchIn = punchIn;
 exports.punchOut = punchOut;
 exports.postBreak = postBreak;
 exports.postDeliverable = postDeliverable;
+exports.fetchNotifications = fetchNotifications;
+exports.ackNotifications = ackNotifications;
+exports.fetchDay = fetchDay;
+exports.fetchMeetingsToday = fetchMeetingsToday;
 exports.fetchTeamRoster = fetchTeamRoster;
 exports.endActiveBreak = endActiveBreak;
 exports.postLeave = postLeave;
@@ -95,6 +99,46 @@ async function postBreak(input) {
 /** Log a "Mark work as done" entry. Mirrors POST /api/me/deliverables. */
 async function postDeliverable(input) {
     return authedPost('/api/agent/deliverables', input);
+}
+async function authedGet(path) {
+    const state = state_1.bus.get();
+    const token = (0, store_1.readToken)();
+    if (!token)
+        throw new ApiError(401, 'no token');
+    const url = `${state.serverBaseUrl.replace(/\/+$/, '')}${path}`;
+    let res;
+    try {
+        res = await fetch(url, { method: 'GET', headers: headers(token) });
+    }
+    catch (err) {
+        throw new ApiError(0, `network: ${err.message}`);
+    }
+    const text = await res.text();
+    let parsed = null;
+    try {
+        parsed = text ? JSON.parse(text) : null;
+    }
+    catch {
+        parsed = text;
+    }
+    if (!res.ok)
+        throw new ApiError(res.status, `${res.status} GET ${path}`, parsed);
+    return parsed;
+}
+/** Unread in-app notifications (leave decided, blocker pinged, help requested…). */
+async function fetchNotifications() {
+    return authedGet('/api/agent/notifications');
+}
+async function ackNotifications(shownIds) {
+    if (shownIds.length === 0)
+        return;
+    await authedPost('/api/agent/notifications', { shownIds });
+}
+async function fetchDay() {
+    return authedGet('/api/agent/day');
+}
+async function fetchMeetingsToday() {
+    return authedGet('/api/agent/meetings/today');
 }
 async function fetchTeamRoster() {
     const state = state_1.bus.get();

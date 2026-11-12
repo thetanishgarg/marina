@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
-import { and, eq, ne } from 'drizzle-orm'
+import { and, eq, isNull, ne } from 'drizzle-orm'
+import { resolveAgentOrg } from '@/lib/agent/org'
 import { db, schema } from '@/lib/db/client'
 import { authenticateAgent } from '@/lib/agent/auth'
 
@@ -13,15 +14,9 @@ export async function GET(req: Request) {
   const agent = await authenticateAgent(req)
   if (!agent) return NextResponse.json({ error: 'unauthorized' }, { status: 401 })
 
-  const myOrgs = await db
-    .select({ orgId: schema.memberships.orgId })
-    .from(schema.memberships)
-    .where(eq(schema.memberships.userId, agent.user.id))
-
-  if (myOrgs.length === 0) return NextResponse.json({ members: [] })
-
-  // Use the first org — agent currently operates against a single org at a time.
-  const orgId = myOrgs[0]!.orgId
+  const org = await resolveAgentOrg(agent.user.id)
+  if (!org.ok) return NextResponse.json({ orgId: null, members: [] })
+  const orgId = org.orgId
 
   const rows = await db
     .select({
@@ -33,7 +28,13 @@ export async function GET(req: Request) {
     })
     .from(schema.memberships)
     .innerJoin(schema.users, eq(schema.memberships.userId, schema.users.id))
-    .where(and(eq(schema.memberships.orgId, orgId), ne(schema.users.id, agent.user.id)))
+    .where(
+      and(
+        eq(schema.memberships.orgId, orgId),
+        isNull(schema.memberships.endedAt), // never offer ex-members as "waiting on"
+        ne(schema.users.id, agent.user.id),
+      ),
+    )
 
   rows.sort((a, b) => (a.name ?? a.login).localeCompare(b.name ?? b.login))
 

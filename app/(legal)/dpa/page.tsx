@@ -55,8 +55,8 @@ export default function DPAPage() {
       <ul className="list-disc pl-6 space-y-1">
         <li><strong>Neon</strong> (US, EU) — Postgres database hosting.</li>
         <li><strong>Vercel</strong> (Global edge) — application hosting.</li>
-        <li><strong>Groq, Inc.</strong> (US) — AI inference (Llama 3.3) for narrative + verification.</li>
-        <li><strong>OpenAI, LLC</strong> (US) — AI inference (gpt-4o-mini) for narrative + verification.</li>
+        <li><strong>Groq, Inc.</strong> (US) — primary AI inference (open-weight gpt-oss models) for narrative, stories, briefs + verification.</li>
+        <li><strong>OpenAI, LLC</strong> (US) — fallback AI inference (gpt-4o-mini) for narrative + verification.</li>
         <li><strong>Resend</strong> (US, EU) — transactional email.</li>
         <li><strong>Slack</strong> (US) — only if Controller configures Slack webhook.</li>
         <li><strong>Cloudflare R2</strong> or <strong>Vercel Blob</strong> — file/avatar blob storage.</li>

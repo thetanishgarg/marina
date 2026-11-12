@@ -31,7 +31,9 @@ export async function GET(req: Request) {
   }
 
   const aiStatus =
-    process.env.OPENAI_API_KEY || process.env.GROQ_API_KEY ? 'configured' : 'missing'
+    process.env.OPENAI_API_KEY || process.env.GROQ_API_KEY
+      ? 'configured'
+      : 'missing'
 
   // Which auth providers are actually wired up AT RUNTIME (booleans only — no
   // secret values are ever returned). This is the fast way to diagnose the
@@ -64,8 +66,12 @@ export async function GET(req: Request) {
     (url.searchParams.get('token') === probeSecret ||
       req.headers.get('authorization') === `Bearer ${probeSecret}`)
 
-  const body: Record<string, unknown> = { ok, db: dbStatus, ai: aiStatus, auth: authProviders }
+  // Anonymous callers get liveness only; which providers are wired is a
+  // reconnaissance hint, so it lives behind the probe secret too.
+  const body: Record<string, unknown> = { ok, db: dbStatus }
   if (authorized) {
+    body.ai = aiStatus
+    body.auth = authProviders
     body.env = process.env.NODE_ENV ?? 'unknown'
     body.version = process.env.VERCEL_GIT_COMMIT_SHA?.slice(0, 7) ?? 'dev'
     body.durationMs = Date.now() - started

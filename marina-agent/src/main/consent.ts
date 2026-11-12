@@ -7,13 +7,26 @@ import { bringToFront, hideDockIfIdle } from './window-utils'
 let consentWindow: BrowserWindow | null = null
 let resolver: ((accepted: boolean) => void) | null = null
 
+/**
+ * The policy version the user must have accepted. The server is the source of
+ * truth (heartbeat `policyVersion`, from MARINA_POLICY_VERSION) so bumping it
+ * there re-prompts every installed agent; the compiled-in POLICY_VERSION is
+ * only the fallback before the first heartbeat.
+ */
+export function requiredPolicyVersion(): string {
+  return get(STORE_KEYS.requiredPolicyVersion) ?? POLICY_VERSION
+}
+
 export function hasConsented(): boolean {
-  return get(STORE_KEYS.consentAt) != null && get(STORE_KEYS.policyVersionAccepted) === POLICY_VERSION
+  return (
+    get(STORE_KEYS.consentAt) != null &&
+    get(STORE_KEYS.policyVersionAccepted) === requiredPolicyVersion()
+  )
 }
 
 export function recordConsent(): void {
   set(STORE_KEYS.consentAt, new Date().toISOString())
-  set(STORE_KEYS.policyVersionAccepted, POLICY_VERSION)
+  set(STORE_KEYS.policyVersionAccepted, requiredPolicyVersion())
 }
 
 export async function showConsentWindow(): Promise<boolean> {

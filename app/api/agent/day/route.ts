@@ -3,6 +3,8 @@ import { and, count, desc, eq, gte, isNull, lt, sql } from 'drizzle-orm'
 import { db, schema } from '@/lib/db/client'
 import { authenticateAgent } from '@/lib/agent/auth'
 import { checkLimit, rateLimitHeaders } from '@/lib/agent/rate-limit'
+import { orgTimezone, resolveAgentOrg } from '@/lib/agent/org'
+import { dayBoundsInTz } from '@/lib/time/tz'
 
 export const runtime = 'nodejs'
 
@@ -35,7 +37,10 @@ export async function GET(req: Request) {
 
   const userId = agent.user.id
   const now = new Date()
-  const todayMidnight = new Date(now.getFullYear(), now.getMonth(), now.getDate())
+  // Day boundaries in the ORG's timezone — the server runs in UTC, so
+  // server-local midnight was 5:30 AM IST and early meetings fell off "today".
+  const org = await resolveAgentOrg(userId)
+  const { startIso: todayMidnight } = dayBoundsInTz(now, await orgTimezone(org.ok ? org.orgId : null))
 
   const activeShift = await db.query.shifts.findFirst({
     where: and(eq(schema.shifts.userId, userId), isNull(schema.shifts.punchedOutAt)),

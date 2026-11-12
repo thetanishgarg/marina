@@ -140,6 +140,8 @@ export async function createDeliverable(input: CreateDeliverableInput): Promise<
   } else {
     const m = await db.query.memberships.findFirst({
       where: and(eq(schema.memberships.userId, input.userId), isNull(schema.memberships.endedAt)),
+      // Same rule as lib/agent/org.ts: most recently joined active org wins.
+      orderBy: (t, { desc }) => [desc(t.createdAt), desc(t.id)],
     })
     orgId = m?.orgId ?? null
   }

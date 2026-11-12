@@ -1,0 +1,13 @@
+node_modules
+.next
+.git
+.env
+.env.*
+.marina-storage
+marina-agent
+jarvis-lab
+downloads
+*.md
+!README.md
+tsconfig.tsbuildinfo
+.DS_Store

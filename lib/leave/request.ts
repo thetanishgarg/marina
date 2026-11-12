@@ -24,6 +24,7 @@ export async function requestLeave(input: {
   endDate: string
   reason: string
   leaveType?: string
+  via?: 'slack' | 'agent' | 'web'
 }): Promise<{ ok: true; leaveId: number } | { ok: false; error: string }> {
   if (!ISO_DATE.test(input.startDate)) return { ok: false, error: 'startDate must be YYYY-MM-DD' }
   if (!ISO_DATE.test(input.endDate)) return { ok: false, error: 'endDate must be YYYY-MM-DD' }
@@ -65,7 +66,7 @@ export async function requestLeave(input: {
     actorUserId: input.userId,
     targetType: 'leave',
     targetId: row.id,
-    payload: { startDate: input.startDate, endDate: input.endDate, leaveType, via: 'slack' },
+    payload: { startDate: input.startDate, endDate: input.endDate, leaveType, via: input.via ?? 'slack' },
   })
 
   void notify({
@@ -105,7 +106,7 @@ export async function requestLeave(input: {
         href: `/org/${input.orgId}/leaves`,
       })
     }
-  }, 'slack leave notify managers')
+  }, 'leave notify managers')
 
   return { ok: true, leaveId: row.id }
 }

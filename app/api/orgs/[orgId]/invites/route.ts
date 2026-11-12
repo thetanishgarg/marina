@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server'
 import { randomBytes } from 'crypto'
 import { and, count, desc, eq, isNull } from 'drizzle-orm'
 import { db, schema } from '@/lib/db/client'
-import { HttpError, requireCapability, requireMembership, roleAtLeast } from '@/lib/auth/guards'
+import { HttpError, requireCapability, roleAtLeast } from '@/lib/auth/guards'
 import { sendInviteEmail } from '@/lib/email/send'
 import type { Discipline, Role } from '@/lib/db/schema'
 
@@ -24,7 +24,9 @@ export async function GET(req: Request, ctx: { params: Promise<{ orgId: string }
   }
 
   try {
-    await requireMembership(orgId, 'manager')
+    // Same capability as creating/revoking invites — leads share the
+    // manager rank but must not see (or harvest) the pending-invite list.
+    await requireCapability(orgId, 'manage_members')
     const rows = await db
       .select()
       .from(schema.invites)

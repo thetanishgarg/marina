@@ -1,3 +1,4 @@
+import { handleRevoked } from './heartbeat'
 import { postEvents, ApiError } from './api'
 import { STORE_KEYS, get, set, type PendingBatch } from './store'
 import { bus } from './state'
@@ -68,8 +69,8 @@ export async function flush(): Promise<void> {
       } catch (err) {
         const e = err as ApiError
         if (e.status === 401) {
-          // Token revoked. Stop trying and surface to UI.
-          bus.patch({ paired: false, lastError: 'token revoked' })
+          // Token revoked — stop, clear and send the user to re-pair.
+          handleRevoked()
           break
         }
         // Network / 5xx — back off with jitter.

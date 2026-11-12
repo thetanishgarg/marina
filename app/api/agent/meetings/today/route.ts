@@ -3,6 +3,8 @@ import { and, eq, gte, lt } from 'drizzle-orm'
 import { db, schema } from '@/lib/db/client'
 import { authenticateAgent } from '@/lib/agent/auth'
 import { checkLimit, rateLimitHeaders } from '@/lib/agent/rate-limit'
+import { orgTimezone, resolveAgentOrg } from '@/lib/agent/org'
+import { dayBoundsInTz } from '@/lib/time/tz'
 
 export const runtime = 'nodejs'
 
@@ -28,8 +30,12 @@ export async function GET(req: Request) {
   }
 
   const now = new Date()
-  const todayMidnight = new Date(now.getFullYear(), now.getMonth(), now.getDate())
-  const tomorrowMidnight = new Date(todayMidnight.getTime() + 24 * 60 * 60 * 1000)
+  // Org-timezone day, not server-local (UTC) — see /api/agent/day.
+  const org = await resolveAgentOrg(agent.user.id)
+  const { startIso: todayMidnight, endIso: tomorrowMidnight } = dayBoundsInTz(
+    now,
+    await orgTimezone(org.ok ? org.orgId : null),
+  )
 
   const rows = await db
     .select({

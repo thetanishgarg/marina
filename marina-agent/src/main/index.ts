@@ -6,7 +6,7 @@ import { createTray } from './tray'
 import { startUploader, stopUploader, drainOnQuit } from './uploader'
 import { stopSampler } from './sampler'
 import { stopShotter } from './shotter'
-import { startHeartbeat, stopHeartbeat, pingOnce } from './heartbeat'
+import { startHeartbeat, stopHeartbeat, pingOnce, resetRevokedFlag } from './heartbeat'
 import { hasConsented, registerConsentIpc } from './consent'
 import { registerPairingIpc } from './pairing'
 import { openOnboardingWindow, registerOnboardingIpc } from './onboarding'
@@ -15,6 +15,7 @@ import { registerLeaveIpc } from './leave'
 import { registerPunchIpc, performPunchIn, openPunchOutWindow } from './punch'
 import { registerDoneIpc, openDoneWindow } from './done'
 import { startNotifications, stopNotifications } from './notifications'
+import { startServerFeed, stopServerFeed } from './server-feed'
 
 /**
  * Deep-link handler for the `marina://` protocol. The web app uses this to let
@@ -91,6 +92,7 @@ app.on('before-quit', async (e) => {
     await drainOnQuit()
   } finally {
     stopNotifications()
+    stopServerFeed()
     stopHeartbeat()
     stopUploader()
     app.exit(0)
@@ -142,9 +144,11 @@ app.whenReady().then(async () => {
   registerPairingIpc(() => {
     // Once paired, start the always-on services. Tracking (sampler+shotter)
     // only starts when the user punches in — heartbeat will turn it on.
+    resetRevokedFlag()
     startHeartbeat()
     startUploader()
     startNotifications()
+    startServerFeed()
   })
 
   // Always create the tray first so the user has UI even before consent finishes.
@@ -180,6 +184,7 @@ app.whenReady().then(async () => {
     startHeartbeat()
     startUploader()
     startNotifications()
+    startServerFeed()
     await pingOnce() // initial state sync — heartbeat reconciles tracking
   } else {
     openOnboardingWindow()

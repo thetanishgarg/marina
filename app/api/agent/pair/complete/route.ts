@@ -6,6 +6,7 @@ import {
   hashPairingCode,
   normalizePairingCode,
 } from '@/lib/agent/auth'
+import { checkRateLimit } from '@/lib/auth/rate-limit'
 
 export const runtime = 'nodejs'
 
@@ -31,6 +32,14 @@ export async function POST(req: Request) {
   const label = (body.label ?? 'Mac').toString().slice(0, 80) || 'Mac'
   const platform = (body.platform ?? 'darwin').toString().slice(0, 16) || 'darwin'
   const agentVersion = body.agentVersion ? String(body.agentVersion).slice(0, 32) : null
+
+  // Brute-force guard: 8-char codes are ~40 bits, but an unthrottled endpoint
+  // that matches ANY user's live code is still a target. Per-IP, durable.
+  const ip = (req.headers.get('x-forwarded-for') ?? '').split(',')[0]?.trim() || 'unknown'
+  const rl = await checkRateLimit(`pair_complete:${ip}`, 10, 10 * 60 * 1000)
+  if (!rl.allowed) {
+    return NextResponse.json({ error: 'too many attempts — wait a few minutes' }, { status: 429 })
+  }
 
   const hash = hashPairingCode(normalized)
 

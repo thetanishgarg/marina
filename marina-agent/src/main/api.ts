@@ -76,7 +76,8 @@ export type HeartbeatResponse = {
   flushIntervalSeconds: number
   policyVersion: string
   primaryOrgId: number | null
-  activeBreak: { id: number; startedAt: string; reason: string } | null
+  orgIds?: number[]
+  activeBreak: { id: number; startedAt: string; reason: string; category?: string } | null
   activeShift: { id: number; punchedInAt: string } | null
 }
 
@@ -207,6 +208,73 @@ export type DeliverableResponse = {
 /** Log a "Mark work as done" entry. Mirrors POST /api/me/deliverables. */
 export async function postDeliverable(input: LogDeliverableInput): Promise<DeliverableResponse> {
   return authedPost<DeliverableResponse>('/api/agent/deliverables', input)
+}
+
+async function authedGet<T>(path: string): Promise<T> {
+  const state = bus.get()
+  const token = readToken()
+  if (!token) throw new ApiError(401, 'no token')
+  const url = `${state.serverBaseUrl.replace(/\/+$/, '')}${path}`
+  let res: Response
+  try {
+    res = await fetch(url, { method: 'GET', headers: headers(token) })
+  } catch (err) {
+    throw new ApiError(0, `network: ${(err as Error).message}`)
+  }
+  const text = await res.text()
+  let parsed: unknown = null
+  try {
+    parsed = text ? JSON.parse(text) : null
+  } catch {
+    parsed = text
+  }
+  if (!res.ok) throw new ApiError(res.status, `${res.status} GET ${path}`, parsed)
+  return parsed as T
+}
+
+export type ServerNotification = {
+  id: number
+  kind: string
+  title: string
+  body: string | null
+  href: string | null
+  createdAt: string
+}
+
+/** Unread in-app notifications (leave decided, blocker pinged, help requested…). */
+export async function fetchNotifications(): Promise<{ notifications: ServerNotification[] }> {
+  return authedGet('/api/agent/notifications')
+}
+
+export async function ackNotifications(shownIds: number[]): Promise<void> {
+  if (shownIds.length === 0) return
+  await authedPost('/api/agent/notifications', { shownIds })
+}
+
+export type DayResponse = {
+  punchedIn: boolean
+  productivity: number
+  focusMinutes: number
+  deliverablesToday: number
+  meetingsRemainingToday: number
+  nextMeetingAt: string | null
+  nextMeetingTitle: string | null
+}
+
+export async function fetchDay(): Promise<DayResponse> {
+  return authedGet('/api/agent/day')
+}
+
+export type MeetingRow = {
+  id: number
+  title: string
+  startAt: string
+  endAt: string
+  conferenceUrl: string | null
+}
+
+export async function fetchMeetingsToday(): Promise<{ meetings: MeetingRow[] }> {
+  return authedGet('/api/agent/meetings/today')
 }
 
 export async function fetchTeamRoster(): Promise<TeamRosterResponse> {

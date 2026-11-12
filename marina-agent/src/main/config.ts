@@ -52,4 +52,5 @@ export const STORE_KEYS = {
   pendingBatches: 'pendingBatches',
   lastFlushAt: 'lastFlushAt',
   policyVersionAccepted: 'policyVersionAccepted',
+  requiredPolicyVersion: 'requiredPolicyVersion',
 } as const

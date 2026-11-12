@@ -3,6 +3,7 @@ import { and, eq, isNull } from 'drizzle-orm'
 import { db, schema } from '@/lib/db/client'
 import { authenticateAgent } from '@/lib/agent/auth'
 import { audit, requestMeta } from '@/lib/audit/log'
+import { resolveAgentOrg } from '@/lib/agent/org'
 
 export const runtime = 'nodejs'
 
@@ -10,12 +11,8 @@ export async function POST(req: Request) {
   const agent = await authenticateAgent(req)
   if (!agent) return NextResponse.json({ error: 'unauthorized' }, { status: 401 })
 
-  const ms = await db
-    .select({ orgId: schema.memberships.orgId })
-    .from(schema.memberships)
-    .where(and(eq(schema.memberships.userId, agent.user.id), isNull(schema.memberships.endedAt)))
-    .limit(1)
-  const orgId = ms[0]?.orgId ?? null
+  const org = await resolveAgentOrg(agent.user.id)
+  const orgId = org.ok ? org.orgId : null
 
   const existing = await db.query.shifts.findFirst({
     where: and(eq(schema.shifts.userId, agent.user.id), isNull(schema.shifts.punchedOutAt)),

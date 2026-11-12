@@ -81,6 +81,19 @@ export async function POST(req: Request) {
     where: eq(schema.userSettings.userId, agent.user.id),
   })
 
+  // Consent gate (DPDP): never store or send a capture to vision unless the
+  // user's recorded consent matches the CURRENT policy version. Pairing writes
+  // consentAt/consentPolicyVersion; bumping MARINA_POLICY_VERSION invalidates
+  // it until the agent re-prompts and the device re-pairs.
+  const currentPolicy = process.env.MARINA_POLICY_VERSION ?? 'v1'
+  if (!settings?.consentAt || settings.consentPolicyVersion !== currentPolicy) {
+    log.info('agent.shot.no_consent_discard', { userId: agent.user.id, tokenId: agent.token.id })
+    return NextResponse.json(
+      { error: 'screenshot consent missing for the current policy version' },
+      { status: 403, headers: rateLimitHeaders(limit) },
+    )
+  }
+
   if (settings?.trackingPausedAt) {
     log.info('agent.shot.paused_discard', {
       userId: agent.user.id,

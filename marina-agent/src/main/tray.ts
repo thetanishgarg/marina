@@ -115,6 +115,19 @@ function rebuild(): void {
   } else if (state.userLogin) {
     items.push({ label: `@${state.userLogin}`, enabled: false })
   }
+  // Today — same numbers as the web "Your day" card (from /api/agent/day).
+  if (state.paired && state.today?.punchedIn) {
+    const t = state.today
+    items.push({
+      label: `Today · ${t.productivity}% focus · ${t.deliverablesToday} shipped`,
+      enabled: false,
+    })
+    if (t.nextMeetingAt && t.nextMeetingTitle) {
+      const at = new Date(t.nextMeetingAt).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })
+      const title = t.nextMeetingTitle.length > 32 ? `${t.nextMeetingTitle.slice(0, 32)}…` : t.nextMeetingTitle
+      items.push({ label: `Next · ${title} at ${at}`, enabled: false })
+    }
+  }
   items.push({ type: 'separator' })
 
   if (state.paired) {

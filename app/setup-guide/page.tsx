@@ -206,7 +206,6 @@ export default function SetupGuidePage() {
               <li><strong>Connect Google Calendar</strong> — see meetings in the agent.</li>
               <li><strong>Connect GitHub</strong> (engineers) — PRs and commits show up automatically.</li>
               <li><strong>Set working days</strong> — for hybrid / 4-day weeks.</li>
-              <li><strong>Quiet hours</strong> — MARINA queues notifications outside your window.</li>
             </ul>
           </Section>
 

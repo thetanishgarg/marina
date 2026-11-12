@@ -53,5 +53,6 @@ exports.STORE_KEYS = {
     pendingBatches: 'pendingBatches',
     lastFlushAt: 'lastFlushAt',
     policyVersionAccepted: 'policyVersionAccepted',
+    requiredPolicyVersion: 'requiredPolicyVersion',
 };
 //# sourceMappingURL=config.js.map

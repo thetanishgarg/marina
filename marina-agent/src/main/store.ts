@@ -29,6 +29,7 @@ type Schema = {
   [STORE_KEYS.pendingBatches]?: PendingBatch[]
   [STORE_KEYS.lastFlushAt]?: string
   [STORE_KEYS.policyVersionAccepted]?: string
+  [STORE_KEYS.requiredPolicyVersion]?: string
 }
 
 const store = new Store<Schema>({

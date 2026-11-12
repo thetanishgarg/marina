@@ -1,14 +1,21 @@
 import { NextResponse } from 'next/server'
-import { eq } from 'drizzle-orm'
 import { db, schema } from '@/lib/db/client'
+import { eq } from 'drizzle-orm'
 import { authenticateAgent } from '@/lib/agent/auth'
+import { resolveAgentOrg } from '@/lib/agent/org'
+import { requestLeave } from '@/lib/leave/request'
 
 export const runtime = 'nodejs'
 
-const REASON_MAX = 500
-const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/
-
-/** Agent-authenticated leave-request submission. */
+/**
+ * Agent-authenticated leave-request submission.
+ *
+ * Goes through the same domain function as Slack (validation, audit, Slack
+ * notify, in-app rows for every manager) so a leave filed from the desktop is
+ * indistinguishable from one filed on the web. Previously this route inserted
+ * the row directly — managers were never notified — and resolved the org from
+ * the user's first membership, including orgs they had left.
+ */
 export async function POST(req: Request) {
   const agent = await authenticateAgent(req)
   if (!agent) return NextResponse.json({ error: 'unauthorized' }, { status: 401 })
@@ -18,6 +25,7 @@ export async function POST(req: Request) {
     startDate?: string
     endDate?: string
     reason?: string
+    leaveType?: string
   } = {}
   try {
     body = await req.json()
@@ -25,53 +33,28 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: 'invalid json' }, { status: 400 })
   }
 
-  // Default orgId to the user's first membership
-  let orgId: number | null = typeof body.orgId === 'number' ? body.orgId : null
-  if (!orgId) {
-    const ms = await db
-      .select({ orgId: schema.memberships.orgId })
-      .from(schema.memberships)
-      .where(eq(schema.memberships.userId, agent.user.id))
-      .limit(1)
-    orgId = ms[0]?.orgId ?? null
-  }
-  if (!orgId) {
+  // A stale orgId (an org the user has left) falls back to their current org.
+  let org = await resolveAgentOrg(agent.user.id, body.orgId)
+  if (!org.ok && org.reason === 'forbidden') org = await resolveAgentOrg(agent.user.id)
+  if (!org.ok) {
     return NextResponse.json({ error: 'no team — accept a team invite first' }, { status: 400 })
   }
 
-  if (typeof body.startDate !== 'string' || !ISO_DATE.test(body.startDate)) {
-    return NextResponse.json({ error: 'startDate must be YYYY-MM-DD' }, { status: 400 })
-  }
-  if (typeof body.endDate !== 'string' || !ISO_DATE.test(body.endDate)) {
-    return NextResponse.json({ error: 'endDate must be YYYY-MM-DD' }, { status: 400 })
-  }
-  if (body.endDate < body.startDate) {
-    return NextResponse.json({ error: 'endDate must be on or after startDate' }, { status: 400 })
-  }
-  const reason = (body.reason ?? '').toString().trim().slice(0, REASON_MAX)
-  if (reason.length === 0) {
-    return NextResponse.json({ error: 'reason required' }, { status: 400 })
-  }
-
-  // Confirm membership
-  const membership = await db.query.memberships.findFirst({
-    where: eq(schema.memberships.userId, agent.user.id),
+  const result = await requestLeave({
+    userId: agent.user.id,
+    orgId: org.orgId,
+    startDate: String(body.startDate ?? ''),
+    endDate: String(body.endDate ?? ''),
+    reason: String(body.reason ?? ''),
+    leaveType: body.leaveType,
+    via: 'agent',
   })
-  if (!membership || membership.orgId !== orgId) {
-    return NextResponse.json({ error: 'not a member of that org' }, { status: 403 })
-  }
+  if (!result.ok) return NextResponse.json({ error: result.error }, { status: 400 })
 
-  const [row] = await db
-    .insert(schema.leaveRequests)
-    .values({
-      userId: agent.user.id,
-      orgId,
-      startDate: body.startDate,
-      endDate: body.endDate,
-      reason,
-      status: 'pending',
-    })
-    .returning()
+  const row = await db.query.leaveRequests.findFirst({
+    where: eq(schema.leaveRequests.id, result.leaveId),
+  })
+  if (!row) return NextResponse.json({ error: 'internal' }, { status: 500 })
 
   return NextResponse.json({
     ok: true,

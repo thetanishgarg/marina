@@ -23,6 +23,7 @@ class StateBus extends events_1.EventEmitter {
         primaryOrgId: null,
         activeBreak: null,
         activeShift: null,
+        today: null,
     };
     get() {
         return this.state;

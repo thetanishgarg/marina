@@ -9,7 +9,11 @@ import type { NewLocalActivity } from '@/lib/db/schema'
 export const runtime = 'nodejs'
 
 const MAX_BATCH = 200
-const MAX_WINDOW_AGE_MS = 24 * 60 * 60 * 1000
+// The agent's durable queue holds up to ~17 days of batches so a laptop that
+// was offline over a weekend (or a long trip) can catch up. Rejecting
+// anything older than 24h silently threw that data away. 14 days keeps the
+// guard against garbage timestamps while honouring the offline promise.
+const MAX_WINDOW_AGE_MS = 14 * 24 * 60 * 60 * 1000
 const MAX_APP_LEN = 128
 const MAX_TITLE_LEN = 512
 

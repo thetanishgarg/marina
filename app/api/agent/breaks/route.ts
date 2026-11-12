@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { and, eq, isNull } from 'drizzle-orm'
 import { db, schema } from '@/lib/db/client'
 import { authenticateAgent } from '@/lib/agent/auth'
+import { resolveAgentOrg } from '@/lib/agent/org'
 import { notify } from '@/lib/notify/send'
 import type { BreakCategory } from '@/lib/db/schema'
 
@@ -54,20 +55,11 @@ export async function POST(req: Request) {
   // Resolve org. A supplied orgId MUST be one this agent's user belongs to —
   // never trust the body to attribute a break (and manager notification) to an
   // arbitrary org. Falls back to the user's first membership when omitted.
-  const ms = await db
-    .select({ orgId: schema.memberships.orgId })
-    .from(schema.memberships)
-    .where(and(eq(schema.memberships.userId, agent.user.id), isNull(schema.memberships.endedAt)))
-  const memberOrgIds = new Set(ms.map((m) => m.orgId))
-  let orgId: number | null
-  if (typeof body.orgId === 'number') {
-    if (!memberOrgIds.has(body.orgId)) {
-      return NextResponse.json({ error: 'not a member of that org' }, { status: 403 })
-    }
-    orgId = body.orgId
-  } else {
-    orgId = ms[0]?.orgId ?? null
-  }
+  // An orgId the user has LEFT is treated as stale (old agents cached it from
+  // the heartbeat) and we fall back to their current org instead of a 403.
+  let org = await resolveAgentOrg(agent.user.id, body.orgId)
+  if (!org.ok && org.reason === 'forbidden') org = await resolveAgentOrg(agent.user.id)
+  const orgId: number | null = org.ok ? org.orgId : null
 
   let waitingOnUserId: number | null = null
   if (category === 'blocked' && typeof body.waitingOnUserId === 'number' && orgId) {
@@ -75,6 +67,7 @@ export async function POST(req: Request) {
       where: and(
         eq(schema.memberships.orgId, orgId),
         eq(schema.memberships.userId, body.waitingOnUserId),
+        isNull(schema.memberships.endedAt),
       ),
     })
     if (peer) waitingOnUserId = body.waitingOnUserId

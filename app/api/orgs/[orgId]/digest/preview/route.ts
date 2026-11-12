@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server'
-import { HttpError, requireMembership } from '@/lib/auth/guards'
+import { HttpError, requireCapability } from '@/lib/auth/guards'
 import { buildWeeklyDigest, renderDigestEmail } from '@/lib/digest/weekly'
 
 export const runtime = 'nodejs'
@@ -10,7 +10,9 @@ export const maxDuration = 60
  *   - JSON structured payload (default)
  *   - HTML email render (when ?format=html — useful to view in a browser tab)
  *
- * Owner / manager only.
+ * The weekly digest is the org-wide CEO view, so it needs `view_all_data`
+ * (owners/admins implicitly; HR heads when granted). A plain manager/lead
+ * used to get every team's numbers here.
  */
 export async function GET(req: Request, ctx: { params: Promise<{ orgId: string }> }) {
   const { orgId: raw } = await ctx.params
@@ -19,7 +21,7 @@ export async function GET(req: Request, ctx: { params: Promise<{ orgId: string }
     return NextResponse.json({ error: 'invalid orgId' }, { status: 400 })
   }
   try {
-    await requireMembership(orgId, 'manager')
+    await requireCapability(orgId, 'view_all_data')
     const digest = await buildWeeklyDigest(orgId)
     if (!digest) return NextResponse.json({ error: 'org not found' }, { status: 404 })
 

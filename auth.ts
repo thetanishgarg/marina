@@ -163,6 +163,20 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
   ],
   session: { strategy: 'jwt' },
   callbacks: {
+    /**
+     * Account merging trusts the provider's email (allowDangerousEmailAccountLinking).
+     * That is only safe when the provider asserts the address is VERIFIED —
+     * otherwise someone could register an unverified address and be merged
+     * into the victim's MARINA account. GitHub only exposes verified emails
+     * on the profile; Google tells us explicitly via `email_verified`.
+     */
+    async signIn({ account, profile }) {
+      if (account?.provider === 'google') {
+        const verified = (profile as { email_verified?: boolean } | undefined)?.email_verified
+        if (verified !== true) return false
+      }
+      return true
+    },
     async jwt({ token, account, profile, user }) {
       const t = token as typeof token & MarinaTokenFields
 

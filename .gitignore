@@ -40,3 +40,6 @@ yarn-error.log*
 *.tsbuildinfo
 next-env.d.ts
 .marina-storage/
+
+# ...but the template with placeholder values is safe to share
+!.env.example

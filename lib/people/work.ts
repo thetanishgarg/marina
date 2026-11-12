@@ -32,6 +32,7 @@ export type MemberWork = {
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function rawOf(e: { raw: unknown }): any {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   return (e.raw ?? {}) as any
 }
 

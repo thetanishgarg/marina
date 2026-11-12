@@ -80,7 +80,7 @@ export function LandingTimeSaved() {
               <p className="font-display text-[30px] sm:text-[40px] leading-tight mt-1">5+ hours back, every week.</p>
             </div>
             <p className="text-[14px] text-white/70 max-w-xs leading-snug">
-              Per manager. Per HR lead. That’s most of a working day, returned to the work that actually moves your
+              Estimated per manager or HR lead, from the task-by-task breakdown above. That’s most of a working day, returned to the work that actually moves your
               team forward.
             </p>
           </div>

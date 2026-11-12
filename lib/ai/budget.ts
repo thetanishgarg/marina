@@ -112,7 +112,16 @@ export function estimateCostCents(input: {
   const outT = input.outputTokens ?? 0
   const img = input.imageCount ?? 0
   let usd = 0
-  if (input.model.includes('gpt-4o-mini')) {
+  if (input.model.includes('gemini') && input.model.includes('lite')) {
+    // Gemini Flash-Lite — priced conservatively above published Flash-Lite rates.
+    usd = (inT / 1_000_000) * 0.25 + (outT / 1_000_000) * 1.5
+  } else if (input.model.includes('gemini')) {
+    // Gemini Flash
+    usd = (inT / 1_000_000) * 0.5 + (outT / 1_000_000) * 3
+  } else if (input.model.includes('gpt-oss')) {
+    // Groq gpt-oss-120b
+    usd = (inT / 1_000_000) * 0.15 + (outT / 1_000_000) * 0.75
+  } else if (input.model.includes('gpt-4o-mini')) {
     usd = (inT / 1_000_000) * 0.15 + (outT / 1_000_000) * 0.6 + img * 0.000638
   } else if (input.model.includes('llama-3.3')) {
     usd = (inT / 1_000_000) * 0.59 + (outT / 1_000_000) * 0.79

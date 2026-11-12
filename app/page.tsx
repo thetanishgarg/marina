@@ -247,7 +247,7 @@ function Hero({
               Marina is the AI chief of staff for managers and HR.
               <span className="block mt-1.5 text-[var(--m-ink-3)] font-normal text-[15px] md:text-[16px]">
                 Status-chasing, standups, attendance, leave and reviews &mdash;
-                even every birthday and 1:1 reminder. Automated. Your team gets{" "}
+                even every birthday and 1:1 reminder. Automated. Managers get an estimated{" "}
                 <span className="font-semibold text-[var(--m-ink-2)]">
                   5+ hours back
                 </span>
@@ -438,14 +438,13 @@ function ProofStrip() {
     {
       value: "5+",
       suffix: "hrs",
-      label: "Saved per manager / week",
+      label: "Est. hours back per manager / week",
       tone: "sage",
     },
     { value: "0", label: "Status meetings needed", tone: "clay" },
     {
-      value: "78",
-      suffix: "%",
-      label: "Faster blocker resolution",
+      value: "0",
+      label: "Timesheets or standup forms to fill",
       tone: "gold",
     },
     {
@@ -632,7 +631,7 @@ function PainSection() {
                 />
                 <GainRow
                   headline="Ask MARINA anything"
-                  sub="Grounded answers in 2 seconds."
+                  sub="Grounded, cited answers in seconds."
                 />
                 <GainRow
                   headline="Weekly digests written for you"
@@ -857,7 +856,7 @@ function ProductSection() {
               No forms, no standup, no chasing. Marina reads the real signals
               &mdash; GitHub activity, calendar, focus time &mdash; and hands
               you a grounded, cited summary of what each person shipped, where
-              their time went, and what needs you. Never a hallucination.
+              their time went, and what needs you. Every line points back to its source.
             </p>
             <ul className="mt-6 space-y-2.5 text-[13.5px] text-[var(--m-ink-2)]">
               <Bullet>
@@ -1024,7 +1023,7 @@ function ShowcaseSection() {
         <>
           Ask anything about anyone.{" "}
           <span className="italic brand-gradient-text">
-            Get a grounded answer in 2 seconds.
+            Get a grounded answer in seconds.
           </span>
         </>
       ),
@@ -1112,7 +1111,7 @@ function ShowcaseSection() {
       bullets: [
         "One feed, every discipline",
         "Per-role icons so signal stays clear",
-        "Quiet hours respected. No noise.",
+        "Scoped to the people you manage.",
       ],
       mockup: <ActivityFeedMockup />,
       flip: true,
@@ -1150,9 +1149,9 @@ function ShowcaseSection() {
               </p>
             </h2>
             <p className="mt-5 text-[15.5px] md:text-[16px] text-[var(--m-ink-2)] leading-relaxed">
-              Every screen below is the real product &mdash; the surfaces you
-              and your team live in, day to day. No stock art, no &ldquo;coming
-              soon.&rdquo;
+              Every screen below is a real MARINA surface &mdash; the ones you
+              and your team live in, day to day &mdash; shown here with sample
+              data.
             </p>
           </div>
         </Reveal>
@@ -1213,7 +1212,7 @@ function Workflows() {
       eyebrow: "Attendance",
       stat: "0 sheets",
       title: "Auto-tracked. No spreadsheets.",
-      body: "Punch-in, leaves, regional holidays — all in one calendar. Export ready.",
+      body: "Punch-in, leaves, balances and Indian public holidays — all in one calendar.",
     },
     {
       eyebrow: "Briefs",
@@ -1347,7 +1346,7 @@ function Integrations() {
             { name: "GitHub", live: true },
             { name: "Slack", live: true },
             { name: "Google Calendar", live: true },
-            { name: "Razorpay", live: true },
+            { name: "Mac + Windows agent", live: true },
             { name: "Linear", live: false },
             { name: "Jira", live: false },
             { name: "Notion", live: false },
@@ -1882,7 +1881,6 @@ function Footer() {
               ["Workflows", "#workflows"],
               ["Early access", "#pricing"],
               ["Download app", "/download"],
-              ["Changelog", "/changelog"],
             ]}
           />
           <FooterCol

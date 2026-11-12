@@ -241,7 +241,7 @@ export async function GET(
       app?: string | null
       detail?: string
     }> = []
-    let shiftTotals: { workMin: number; breakMin: number; idleMin: number; lockedMin: number } = { workMin: 0, breakMin: 0, idleMin: 0, lockedMin: 0 }
+    const shiftTotals: { workMin: number; breakMin: number; idleMin: number; lockedMin: number } = { workMin: 0, breakMin: 0, idleMin: 0, lockedMin: 0 }
     if (latestShift) {
       const shiftStart = latestShift.punchedInAt
       const shiftEnd = latestShift.punchedOutAt ?? new Date()

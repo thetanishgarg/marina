@@ -7,6 +7,16 @@ export type ActiveBreak = {
   reason: string
 }
 
+export type TodaySnapshot = {
+  punchedIn: boolean
+  productivity: number
+  focusMinutes: number
+  deliverablesToday: number
+  meetingsRemainingToday: number
+  nextMeetingAt: string | null
+  nextMeetingTitle: string | null
+}
+
 export type ActiveShift = {
   id: number
   punchedInAt: string
@@ -27,6 +37,7 @@ export type AgentState = {
   primaryOrgId: number | null
   activeBreak: ActiveBreak | null
   activeShift: ActiveShift | null
+  today: TodaySnapshot | null
 }
 
 class StateBus extends EventEmitter {
@@ -49,6 +60,7 @@ class StateBus extends EventEmitter {
     primaryOrgId: null,
     activeBreak: null,
     activeShift: null,
+    today: null,
   }
 
   get(): Readonly<AgentState> {

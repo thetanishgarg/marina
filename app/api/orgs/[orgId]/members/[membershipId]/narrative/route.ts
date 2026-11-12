@@ -1,3 +1,4 @@
+import { isProviderName } from '@/lib/ai/registry'
 import { NextResponse } from 'next/server'
 import { and, eq, gte, isNull } from 'drizzle-orm'
 import { db, schema } from '@/lib/db/client'
@@ -21,7 +22,7 @@ export async function POST(
 
   const url = new URL(req.url)
   const providerParam = url.searchParams.get('provider')
-  const preferred = providerParam === 'groq' || providerParam === 'openai' ? providerParam : undefined
+  const preferred = isProviderName(providerParam) ? providerParam : undefined
 
   try {
     const { session, scope } = await requireScope(orgId, 'manager')

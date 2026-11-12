@@ -178,7 +178,7 @@ export function ProfilePageClient({
     if (!detail) return
     setBusy('brief')
     try {
-      const res = await fetch(`/api/orgs/${orgId}/members/${membershipId}/narrative?provider=groq`, {
+      const res = await fetch(`/api/orgs/${orgId}/members/${membershipId}/narrative`, {
         method: 'POST',
       })
       if (!res.ok) throw new Error('brief failed')
